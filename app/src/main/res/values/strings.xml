@@ -1,0 +1,56 @@
+<resources>
+    <string name="app_name">DOG</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Android Studio</string>
+    <string name="nav_header_subtitle">android.studio@android.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_login">Iniciar sesión</string>
+    <string name="action_logout">Cerrar sesión</string>
+    <string-array name="week_days">
+        <item>Lunes</item>
+        <item>Martes</item>
+        <item>Miércoles</item>
+        <item>Jueves</item>
+        <item>Viernes</item>
+        <item>Sábado</item>
+        <item>Domingo</item>
+    </string-array>
+
+    <string name="subject_tasks_pending">Tareas pendientes: %d</string>
+    <string name="subject_notes_count">Notas: %d</string>
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+
+    <string name="dialog_title_new_note">Nueva Nota</string>
+    <string name="dialog_title_edit_note">Editar Nota</string>
+    <string name="hint_note_title">Título de la nota</string>
+    <string name="hint_note_content">Contenido</string>
+    <string name="label_subject_optional">Materia (Opcional)</string>
+
+    <string name="save">Guardar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="none">Ninguna</string>
+    <string name="error_title_empty">El título no puede estar vacío</string>
+
+    <string name="hint_subject_name">Nombre de la materia</string>
+    <string name="label_schedule">Horario</string>
+    <string name="action_add_schedule_block">+ Añadir bloque de horario</string>
+
+    <string name="dialog_title_new_task">Nueva Tarea</string>
+    <string name="hint_task_title">Título de la tarea</string>
+    <string name="hint_task_description">Descripción (opcional)</string>
+    <string name="default_username">Usuario</string>
+    <string name="sync_offline">Sin conexión</string>
+    <string name="sync_connected">Conectado</string>
+    <string name="sync_syncing">Sincronizando…</string>
+    <string name="sync_complete">Sync completa</string>
+    <string name="sync_error">Error de sync</string>
+    <string name="sync_pending">Cambios pendientes</string>
+    <string name="action_sync">Sincronizar</string>
+    <string name="continue_without_account">Continuar sin cuenta</string>
+    <string name="no_subjects">No hay materias registradas</string>
+    <string name="no_tasks">No hay tareas registradas</string>
+    <string name="no_notes">No hay notas registradas</string>
+</resources>
