@@ -67,7 +67,7 @@
             android:layout_marginStart="@dimen/space_md"
             android:drawablePadding="@dimen/space_xs"
             android:textAppearance="?attr/textAppearanceLabelMedium"
-            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textColor="?attr/colorPrimary"
             app:layout_constraintStart_toEndOf="@id/textViewTasksPending"
             app:layout_constraintTop_toTopOf="@id/textViewTasksPending"
             tools:text="Notas: 5" />
