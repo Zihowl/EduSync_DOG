@@ -1,4 +1,4 @@
-# DOG
+# DOG - Daily Organization Gadget
 
 ## License
 
