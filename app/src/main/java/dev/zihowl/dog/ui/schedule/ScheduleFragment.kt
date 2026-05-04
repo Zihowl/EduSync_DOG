@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import com.google.android.material.color.MaterialColors
 import android.os.Bundle
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -17,6 +18,7 @@ import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import com.google.android.material.card.MaterialCardView
 import androidx.lifecycle.ViewModelProvider
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Subject
@@ -46,7 +48,7 @@ class ScheduleFragment : Fragment() {
     private var timeGrid: View? = null
 
     companion object {
-        private const val HOUR_HEIGHT_DP = 60
+        private const val HOUR_HEIGHT_DP = 75
         private const val DAY_WIDTH_DP = 300
         private const val START_HOUR = 0
         private const val END_HOUR = 24
@@ -220,6 +222,7 @@ class ScheduleFragment : Fragment() {
     private fun drawEventView(event: Event) {
         val eventView = LayoutInflater.from(context).inflate(R.layout.item_schedule_event, scheduleContainer, false)
         val eventTextView = eventView.findViewById<TextView>(R.id.event_text)
+        val cardView = eventView as? MaterialCardView
 
         val height = ((event.endMinutes - event.startMinutes) / 60f) * HOUR_HEIGHT_DP
         val topMargin = (event.startMinutes / 60f) * HOUR_HEIGHT_DP
@@ -235,12 +238,28 @@ class ScheduleFragment : Fragment() {
             set(Calendar.HOUR_OF_DAY, (event.endMinutes / 60).toInt())
             set(Calendar.MINUTE, (event.endMinutes % 60).toInt())
         }
-        eventTextView.text = String.format(
-            "%s\n%s - %s",
-            event.subject.name,
-            timeFormat.format(startCal.time),
-            timeFormat.format(endCal.time)
-        )
+        val eventText = if (height < HOUR_HEIGHT_DP * 0.75f) {
+            event.subject.name
+        } else {
+            String.format(
+                "%s\n%s - %s",
+                event.subject.name,
+                timeFormat.format(startCal.time),
+                timeFormat.format(endCal.time)
+            )
+        }
+        if (height < HOUR_HEIGHT_DP * 0.75f) {
+            eventTextView.setPadding(0, 0, 0, 0)
+            eventTextView.maxLines = 1
+            eventTextView.ellipsize = TextUtils.TruncateAt.END
+            eventTextView.includeFontPadding = false
+            cardView?.setContentPadding(0, 0, 0, 0)
+        } else {
+            eventTextView.maxLines = 2
+            eventTextView.ellipsize = null
+            eventTextView.includeFontPadding = true
+        }
+        eventTextView.text = eventText
 
         val params = FrameLayout.LayoutParams(dpToPx(colWidth), dpToPx(height.toInt()))
         params.topMargin = dpToPx(topMargin.toInt())

@@ -2,6 +2,7 @@ package dev.zihowl.dog.ui.main
 
 import android.graphics.Typeface
 import android.os.Bundle
+import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.StyleSpan
 import android.view.Menu
@@ -101,27 +102,26 @@ class MainActivity : AppCompatActivity(),
             }
         }.attach()
 
-        val regularTypeface = Typeface.create("sans-serif", Typeface.NORMAL)
-        val boldTypeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-        fun applyTabTypeface(tab: TabLayout.Tab?, bold: Boolean) {
-            val tabView = (tabLayout.getChildAt(0) as? android.view.ViewGroup)?.getChildAt(tab?.position ?: return) as? android.view.ViewGroup ?: return
-            for (i in 0 until tabView.childCount) {
-                (tabView.getChildAt(i) as? android.widget.TextView)?.let {
-                    it.typeface = if (bold) boldTypeface else regularTypeface
-                    it.textSize = if (bold) 16f else 14f
-                    it.letterSpacing = if (bold) 0.02f else 0f
-                }
+        fun setTabBold(tab: TabLayout.Tab?, bold: Boolean) {
+            val label = tab?.text?.toString() ?: return
+            val spannable = SpannableString(label)
+            if (bold) {
+                spannable.setSpan(StyleSpan(Typeface.BOLD), 0, label.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
+            tab.text = spannable
         }
 
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) = applyTabTypeface(tab, true)
-            override fun onTabUnselected(tab: TabLayout.Tab?) = applyTabTypeface(tab, false)
+            override fun onTabSelected(tab: TabLayout.Tab?) = setTabBold(tab, true)
+            override fun onTabUnselected(tab: TabLayout.Tab?) = setTabBold(tab, false)
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
         tabLayout.post {
-            applyTabTypeface(tabLayout.getTabAt(tabLayout.selectedTabPosition), true)
+            for (i in 0 until tabLayout.tabCount) {
+                val tab = tabLayout.getTabAt(i) ?: continue
+                setTabBold(tab, i == tabLayout.selectedTabPosition)
+            }
         }
 
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
