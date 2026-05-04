@@ -8,6 +8,7 @@ import android.text.style.StyleSpan
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -20,6 +21,7 @@ import com.google.android.material.navigation.NavigationView
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import dev.zihowl.dog.R
+import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.ui.ViewModelFactory
 import dev.zihowl.dog.ui.notes.AddNoteDialogFragment
 import dev.zihowl.dog.ui.notes.NotesViewModel
@@ -45,6 +47,7 @@ class MainActivity : AppCompatActivity(),
     private lateinit var tasksViewModel: TasksViewModel
     private lateinit var notesViewModel: NotesViewModel
     private lateinit var scheduleViewModel: ScheduleViewModel
+    private lateinit var sessionManager: SessionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +62,7 @@ class MainActivity : AppCompatActivity(),
 
         setupViewModels()
         setupToolbarAndDrawer()
+        setupAuthButtons()
         setupViewPagerAndTabs()
 
         supportFragmentManager.addOnBackStackChangedListener(this)
@@ -233,5 +237,35 @@ class MainActivity : AppCompatActivity(),
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         drawerLayout.closeDrawer(GravityCompat.START)
         return true
+    }
+
+    private fun setupAuthButtons() {
+        sessionManager = SessionManager(this)
+        val navigationView = findViewById<NavigationView>(R.id.nav_view)
+        val loginButton = navigationView.findViewById<View>(R.id.nav_login_button)
+        val logoutButton = navigationView.findViewById<View>(R.id.nav_logout_button)
+
+        loginButton.setOnClickListener {
+            sessionManager.isLoggedIn = true
+            updateAuthButtonVisibility()
+            Toast.makeText(this, "Sesión iniciada", Toast.LENGTH_SHORT).show()
+        }
+
+        logoutButton.setOnClickListener {
+            sessionManager.isLoggedIn = false
+            updateAuthButtonVisibility()
+            Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show()
+        }
+
+        updateAuthButtonVisibility()
+    }
+
+    private fun updateAuthButtonVisibility() {
+        val navigationView = findViewById<NavigationView>(R.id.nav_view)
+        val loginButton = navigationView.findViewById<View>(R.id.nav_login_button)
+        val logoutButton = navigationView.findViewById<View>(R.id.nav_logout_button)
+
+        (loginButton.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.GONE else View.VISIBLE
+        (logoutButton.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.VISIBLE else View.GONE
     }
 }

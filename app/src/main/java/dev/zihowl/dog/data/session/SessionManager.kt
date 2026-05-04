@@ -11,6 +11,7 @@ class SessionManager(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_ROLE = "role"
         private const val KEY_DB_PASSPHRASE = "db_passphrase"
+        private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val DEFAULT_ROLE = "alumno"
     }
 
@@ -36,6 +37,10 @@ class SessionManager(context: Context) {
     var role: String
         get() = prefs.getString(KEY_ROLE, DEFAULT_ROLE) ?: DEFAULT_ROLE
         set(value) = prefs.edit().putString(KEY_ROLE, value).apply()
+
+    var isLoggedIn: Boolean
+        get() = prefs.getBoolean(KEY_IS_LOGGED_IN, false)
+        set(value) = prefs.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
 
     fun getDbPassphrase(): ByteArray {
         var passphrase = prefs.getString(KEY_DB_PASSPHRASE, null)
