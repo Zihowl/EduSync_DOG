@@ -1,5 +1,6 @@
 package dev.zihowl.dog.ui.main
 
+import android.content.Intent
 import android.graphics.Typeface
 import android.os.Bundle
 import android.text.Spannable
@@ -8,6 +9,7 @@ import android.text.style.StyleSpan
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
@@ -227,6 +229,7 @@ class MainActivity : AppCompatActivity(),
                     0 -> AddSubjectDialogFragment().show(supportFragmentManager, "AddSubjectDialog")
                     1 -> AddTaskDialogFragment.newInstance().show(supportFragmentManager, "AddTaskDialog")
                     2 -> AddNoteDialogFragment().show(supportFragmentManager, "AddNoteDialog")
+                    3 -> dev.zihowl.dog.ui.schedule.AddManualEventDialogFragment().show(supportFragmentManager, "AddManualEventDialog")
                 }
                 true
             }
@@ -242,30 +245,48 @@ class MainActivity : AppCompatActivity(),
     private fun setupAuthButtons() {
         sessionManager = SessionManager(this)
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
-        val loginButton = navigationView.findViewById<View>(R.id.nav_login_button)
-        val logoutButton = navigationView.findViewById<View>(R.id.nav_logout_button)
+        val headerView = navigationView.getHeaderView(0)
+        val headerUser = headerView.findViewById<TextView>(R.id.header_user)
+        val headerSyncStatus = headerView.findViewById<TextView>(R.id.header_sync_status)
+        headerUser.text = sessionManager.username
 
-        loginButton.setOnClickListener {
-            sessionManager.isLoggedIn = true
-            updateAuthButtonVisibility()
-            Toast.makeText(this, "Sesión iniciada", Toast.LENGTH_SHORT).show()
+        val loginButton = navigationView.findViewById<View?>(R.id.nav_login_button)
+        val logoutButton = navigationView.findViewById<View?>(R.id.nav_logout_button)
+        val syncButton = navigationView.findViewById<View?>(R.id.nav_sync_button)
+
+        if (sessionManager.isGuestMode) {
+            headerSyncStatus.text = getString(R.string.sync_offline)
+            headerSyncStatus.visibility = View.VISIBLE
+            syncButton?.visibility = View.GONE
+        } else {
+            headerSyncStatus.text = getString(R.string.sync_connected)
+            syncButton?.visibility = View.VISIBLE
         }
 
-        logoutButton.setOnClickListener {
-            sessionManager.isLoggedIn = false
-            updateAuthButtonVisibility()
-            Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show()
+        loginButton?.setOnClickListener {
+            navigateToServerConnection()
+        }
+
+        logoutButton?.setOnClickListener {
+            navigateToServerConnection()
         }
 
         updateAuthButtonVisibility()
     }
 
+    private fun navigateToServerConnection() {
+        val intent = Intent(this, dev.zihowl.dog.ui.serverconnection.ServerConnectionActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
+    }
+
     private fun updateAuthButtonVisibility() {
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
-        val loginButton = navigationView.findViewById<View>(R.id.nav_login_button)
-        val logoutButton = navigationView.findViewById<View>(R.id.nav_logout_button)
+        val loginButton = navigationView.findViewById<View?>(R.id.nav_login_button)
+        val logoutButton = navigationView.findViewById<View?>(R.id.nav_logout_button)
 
-        (loginButton.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.GONE else View.VISIBLE
-        (logoutButton.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.VISIBLE else View.GONE
+        loginButton?.let { (it.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.GONE else View.VISIBLE }
+        logoutButton?.let { (it.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.VISIBLE else View.GONE }
     }
 }

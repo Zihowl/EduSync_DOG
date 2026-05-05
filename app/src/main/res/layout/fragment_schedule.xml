@@ -6,11 +6,27 @@
     android:orientation="vertical"
     tools:context=".ui.schedule.ScheduleFragment">
 
-    <Spinner
-        android:id="@+id/day_selector_spinner"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp" />
+        android:orientation="horizontal"
+        android:layout_margin="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonSelectDate"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Fecha" />
+
+        <Spinner
+            android:id="@+id/day_selector_spinner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:layout_marginStart="8dp" />
+    </LinearLayout>
 
     <RelativeLayout
         android:layout_width="match_parent"

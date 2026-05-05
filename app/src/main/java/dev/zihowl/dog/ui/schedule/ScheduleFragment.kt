@@ -1,11 +1,11 @@
 package dev.zihowl.dog.ui.schedule
 
+import android.app.DatePickerDialog
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import com.google.android.material.color.MaterialColors
 import android.os.Bundle
 import android.text.TextUtils
-import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -18,23 +18,28 @@ import android.widget.ScrollView
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import dev.zihowl.dog.R
+import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Subject
+import kotlinx.coroutines.launch
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.Objects
 
 class ScheduleFragment : Fragment() {
 
-    private data class Event(
-        val subject: Subject,
+    private data class ScheduleItem(
+        val name: String,
+        val location: String?,
         val startMinutes: Float,
         val endMinutes: Float,
+        val color: Int = Color.parseColor("#FF6D00"),
         var column: Int = 0,
         var totalColumns: Int = 1
     )
@@ -45,6 +50,7 @@ class ScheduleFragment : Fragment() {
     private lateinit var daySelectorSpinner: Spinner
     private lateinit var scheduleScrollView: ScrollView
     private lateinit var emptyScheduleText: TextView
+    private lateinit var buttonSelectDate: MaterialButton
     private var timeGrid: View? = null
 
     companion object {
@@ -56,6 +62,9 @@ class ScheduleFragment : Fragment() {
 
     private lateinit var weekDays: List<String>
     private var selectedDay: String? = null
+    private var selectedDate: Date = Date()
+    private var allSubjects: List<Subject> = emptyList()
+    private var allManualEvents: List<ManualEvent> = emptyList()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_schedule, container, false)
@@ -69,13 +78,15 @@ class ScheduleFragment : Fragment() {
         daySelectorSpinner = view.findViewById(R.id.day_selector_spinner)
         scheduleScrollView = view.findViewById(R.id.schedule_scroll_view)
         emptyScheduleText = view.findViewById(R.id.empty_schedule_text)
+        buttonSelectDate = view.findViewById(R.id.buttonSelectDate)
 
         weekDays = resources.getStringArray(R.array.week_days).toList()
         viewModel = ViewModelProvider(requireActivity())[ScheduleViewModel::class.java]
 
+        setupDatePicker()
         setupDaySelector()
         setupGrid()
-        observeSubjects()
+        observeData()
     }
 
     private fun setupDaySelector() {
@@ -92,9 +103,33 @@ class ScheduleFragment : Fragment() {
         daySelectorSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedDay = weekDays[position]
-                observeSubjects()
+                refreshSchedule()
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun setupDatePicker() {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        buttonSelectDate.text = sdf.format(selectedDate)
+        buttonSelectDate.setOnClickListener {
+            val calendar = Calendar.getInstance().apply { time = selectedDate }
+            DatePickerDialog(
+                requireContext(),
+                { _, year, month, dayOfMonth ->
+                    calendar.set(year, month, dayOfMonth)
+                    selectedDate = calendar.time
+                    buttonSelectDate.text = sdf.format(selectedDate)
+                    val dow = calendar.get(Calendar.DAY_OF_WEEK)
+                    val idx = if (dow == Calendar.SUNDAY) 6 else dow - 2
+                    daySelectorSpinner.setSelection(idx)
+                    selectedDay = weekDays[idx]
+                    refreshSchedule()
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            ).show()
         }
     }
 
@@ -113,22 +148,26 @@ class ScheduleFragment : Fragment() {
         scheduleContainer.addView(timeGrid)
     }
 
-    private fun observeSubjects() {
+    private fun observeData() {
         viewModel.subjects.observe(viewLifecycleOwner) { subjects ->
-            if (subjects != null && selectedDay != null) {
-                drawSubjectsForDay(subjects, selectedDay!!)
-            }
+            allSubjects = subjects ?: emptyList()
+            refreshSchedule()
+        }
+        viewModel.manualEvents.observe(viewLifecycleOwner) { events ->
+            allManualEvents = events ?: emptyList()
+            refreshSchedule()
         }
     }
 
-    private fun drawSubjectsForDay(subjects: List<Subject>, dayName: String) {
+    private fun refreshSchedule() {
+        val dayName = selectedDay ?: return
         clearEvents()
 
         val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val eventsToday = mutableListOf<Event>()
+        val itemsToday = mutableListOf<ScheduleItem>()
         var firstEventStart = -1f
 
-        for (subject in subjects) {
+        for (subject in allSubjects) {
             val schedule = subject.schedule ?: continue
             for (line in schedule.split("\n")) {
                 if (!line.trim().startsWith(dayName)) continue
@@ -137,116 +176,126 @@ class ScheduleFragment : Fragment() {
                     val times = line.substring(parts[0].length).trim().split(" - ")
                     val startMinutes = parseMinutes(sdf, times[0])
                     val endMinutes = parseMinutes(sdf, times[1])
-
                     if (startMinutes < endMinutes) {
-                        eventsToday.add(Event(subject, startMinutes, endMinutes))
-                        if (firstEventStart == -1f || startMinutes < firstEventStart) {
-                            firstEventStart = startMinutes
-                        }
+                        itemsToday.add(ScheduleItem(subject.name, null, startMinutes, endMinutes))
+                        if (firstEventStart == -1f || startMinutes < firstEventStart) firstEventStart = startMinutes
                     }
-                } catch (_: Exception) {
-                }
+                } catch (_: Exception) { }
             }
         }
 
-        if (eventsToday.isEmpty()) {
+        val cal = Calendar.getInstance().apply { time = selectedDate }
+        val selectedDow = cal.get(Calendar.DAY_OF_WEEK)
+        val selectedDateOnly = cal.time
+
+        for (event in allManualEvents) {
+            val include = when (event.frequencyType) {
+                ManualEvent.FREQUENCY_RECURRENT -> event.dayOfWeek == selectedDow
+                ManualEvent.FREQUENCY_UNIQUE -> {
+                    event.date?.let { d ->
+                        val eventCal = Calendar.getInstance().apply { time = d }
+                        eventCal.get(Calendar.YEAR) == cal.get(Calendar.YEAR) &&
+                        eventCal.get(Calendar.DAY_OF_YEAR) == cal.get(Calendar.DAY_OF_YEAR)
+                    } ?: false
+                }
+                else -> false
+            }
+            if (include) {
+                try {
+                    val startMinutes = parseMinutes(sdf, event.startTime)
+                    val endMinutes = parseMinutes(sdf, event.endTime)
+                    if (startMinutes < endMinutes) {
+                        itemsToday.add(ScheduleItem(event.title, event.location, startMinutes, endMinutes, Color.parseColor("#4CAF50")))
+                        if (firstEventStart == -1f || startMinutes < firstEventStart) firstEventStart = startMinutes
+                    }
+                } catch (_: Exception) { }
+            }
+        }
+
+        if (itemsToday.isEmpty()) {
             emptyScheduleText.visibility = View.VISIBLE
             scheduleScrollView.alpha = 0f
         } else {
             emptyScheduleText.visibility = View.GONE
             scheduleScrollView.alpha = 1f
-            renderEvents(eventsToday)
-
+            renderItems(itemsToday)
             val scrollPos = if (firstEventStart > 0) (firstEventStart / 60f) * HOUR_HEIGHT_DP else 0f
-            scheduleScrollView.post {
-                scheduleScrollView.scrollTo(0, dpToPx(scrollPos.toInt()))
-            }
+            scheduleScrollView.post { scheduleScrollView.scrollTo(0, dpToPx(scrollPos.toInt())) }
         }
     }
 
-    private fun renderEvents(events: List<Event>) {
-        if (events.isEmpty()) return
-
-        val sortedEvents = events.sortedBy { it.startMinutes }
-        val collisionGroups = mutableListOf<MutableList<Event>>()
-
-        for (event in sortedEvents) {
+    private fun renderItems(items: List<ScheduleItem>) {
+        if (items.isEmpty()) return
+        val sorted = items.sortedBy { it.startMinutes }
+        val collisionGroups = mutableListOf<MutableList<ScheduleItem>>()
+        for (item in sorted) {
             var placed = false
             for (group in collisionGroups) {
-                if (group.any { doEventsOverlap(it, event) }) {
-                    group.add(event)
+                if (group.any { doItemsOverlap(it, item) }) {
+                    group.add(item)
                     placed = true
                     break
                 }
             }
-            if (!placed) {
-                collisionGroups.add(mutableListOf(event))
-            }
+            if (!placed) collisionGroups.add(mutableListOf(item))
         }
-
         for (group in collisionGroups) {
             processCollisionGroup(group)
         }
     }
 
-    private fun processCollisionGroup(group: List<Event>) {
+    private fun processCollisionGroup(group: List<ScheduleItem>) {
         if (group.isEmpty()) return
-
-        val columns = mutableListOf<MutableList<Event>>()
+        val columns = mutableListOf<MutableList<ScheduleItem>>()
         columns.add(mutableListOf())
-
-        for (event in group) {
+        for (item in group) {
             var placed = false
             for ((index, column) in columns.withIndex()) {
-                if (column.isEmpty() || !doEventsOverlap(column.last(), event)) {
-                    column.add(event)
-                    event.column = index
+                if (column.isEmpty() || !doItemsOverlap(column.last(), item)) {
+                    column.add(item)
+                    item.column = index
                     placed = true
                     break
                 }
             }
             if (!placed) {
-                val newColumn = mutableListOf(event)
-                event.column = columns.size
+                val newColumn = mutableListOf(item)
+                item.column = columns.size
                 columns.add(newColumn)
             }
         }
-
         val totalColumns = columns.size
-        for (event in group) {
-            event.totalColumns = totalColumns
-            drawEventView(event)
+        for (item in group) {
+            item.totalColumns = totalColumns
+            drawItemView(item)
         }
     }
 
-    private fun drawEventView(event: Event) {
+    private fun drawItemView(item: ScheduleItem) {
         val eventView = LayoutInflater.from(context).inflate(R.layout.item_schedule_event, scheduleContainer, false)
         val eventTextView = eventView.findViewById<TextView>(R.id.event_text)
         val cardView = eventView as? MaterialCardView
+        cardView?.setCardBackgroundColor(item.color)
 
-        val height = ((event.endMinutes - event.startMinutes) / 60f) * HOUR_HEIGHT_DP
-        val topMargin = (event.startMinutes / 60f) * HOUR_HEIGHT_DP
-        val colWidth = DAY_WIDTH_DP / event.totalColumns
-        val leftMargin = event.column * dpToPx(colWidth)
+        val height = ((item.endMinutes - item.startMinutes) / 60f) * HOUR_HEIGHT_DP
+        val topMargin = (item.startMinutes / 60f) * HOUR_HEIGHT_DP
+        val colWidth = DAY_WIDTH_DP / item.totalColumns
+        val leftMargin = item.column * dpToPx(colWidth)
 
         val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
         val startCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, (event.startMinutes / 60).toInt())
-            set(Calendar.MINUTE, (event.startMinutes % 60).toInt())
+            set(Calendar.HOUR_OF_DAY, (item.startMinutes / 60).toInt())
+            set(Calendar.MINUTE, (item.startMinutes % 60).toInt())
         }
         val endCal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, (event.endMinutes / 60).toInt())
-            set(Calendar.MINUTE, (event.endMinutes % 60).toInt())
+            set(Calendar.HOUR_OF_DAY, (item.endMinutes / 60).toInt())
+            set(Calendar.MINUTE, (item.endMinutes % 60).toInt())
         }
+        val locText = item.location?.let { " @$it" } ?: ""
         val eventText = if (height < HOUR_HEIGHT_DP * 0.75f) {
-            event.subject.name
+            item.name + locText
         } else {
-            String.format(
-                "%s\n%s - %s",
-                event.subject.name,
-                timeFormat.format(startCal.time),
-                timeFormat.format(endCal.time)
-            )
+            String.format("%s%s\n%s - %s", item.name, locText, timeFormat.format(startCal.time), timeFormat.format(endCal.time))
         }
         if (height < HOUR_HEIGHT_DP * 0.75f) {
             eventTextView.setPadding(0, 0, 0, 0)
@@ -269,7 +318,7 @@ class ScheduleFragment : Fragment() {
         scheduleContainer.addView(eventView, params)
     }
 
-    private fun doEventsOverlap(e1: Event, e2: Event): Boolean {
+    private fun doItemsOverlap(e1: ScheduleItem, e2: ScheduleItem): Boolean {
         return e1.startMinutes < e2.endMinutes && e2.startMinutes < e1.endMinutes
     }
 

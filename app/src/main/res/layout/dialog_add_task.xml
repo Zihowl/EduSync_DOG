@@ -85,4 +85,17 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="Prioridad"
+        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+    <Spinner
+        android:id="@+id/spinnerPriority"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" />
+
 </LinearLayout>

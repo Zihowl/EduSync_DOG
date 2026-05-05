@@ -50,6 +50,16 @@
     <string name="sync_pending">Cambios pendientes</string>
     <string name="action_sync">Sincronizar</string>
     <string name="continue_without_account">Continuar sin cuenta</string>
+    <string name="server_connection_subtitle">Conecta con tu servidor</string>
+    <string name="hint_server_url">URL del servidor</string>
+    <string name="action_connect">Conectar</string>
+    <string name="continue_as_guest">Continuar en modo invitado</string>
+    <string name="error_url_empty">Ingresa la URL del servidor</string>
+    <string name="login_subtitle">Inicia sesión en tu cuenta</string>
+    <string name="hint_username">Usuario</string>
+    <string name="hint_password">Contraseña</string>
+    <string name="error_username_empty">Ingresa tu usuario</string>
+    <string name="error_password_empty">Ingresa tu contraseña</string>
     <string name="no_subjects">No hay materias registradas</string>
     <string name="no_tasks">No hay tareas registradas</string>
     <string name="no_notes">No hay notas registradas</string>

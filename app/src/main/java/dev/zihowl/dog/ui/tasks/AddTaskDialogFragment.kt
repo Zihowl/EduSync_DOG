@@ -42,10 +42,14 @@ class AddTaskDialogFragment : DialogFragment() {
     private lateinit var editTextTitle: TextInputEditText
     private lateinit var editTextDescription: TextInputEditText
     private lateinit var spinnerSubject: Spinner
+    private lateinit var spinnerPriority: Spinner
     private lateinit var textViewTaskDueDate: TextView
     private var selectedDueDate: Date? = null
     private var isEditing = false
     private var originalTask: Task? = null
+
+    private val priorityOptions = listOf("Alta", "Media", "Baja")
+    private val priorityValues = listOf(Task.PRIORITY_HIGH, Task.PRIORITY_MEDIUM, Task.PRIORITY_LOW)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,7 +68,12 @@ class AddTaskDialogFragment : DialogFragment() {
         editTextTitle = view.findViewById(R.id.editTextTaskTitle)
         editTextDescription = view.findViewById(R.id.editTextTaskDescription)
         spinnerSubject = view.findViewById(R.id.spinnerSubjectForTask)
+        spinnerPriority = view.findViewById(R.id.spinnerPriority)
         textViewTaskDueDate = view.findViewById(R.id.textViewTaskDueDate)
+
+        val priorityAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, priorityOptions)
+        priorityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerPriority.adapter = priorityAdapter
 
         view.findViewById<TextView>(R.id.dialog_task_title)?.text = if (isEditing) "Editar Tarea" else "Nueva Tarea"
 
@@ -89,6 +98,8 @@ class AddTaskDialogFragment : DialogFragment() {
             editTextDescription.setText(task.description)
             selectedDueDate = task.dueDate
             textViewTaskDueDate.text = task.dueDate?.let { formatDate(it) } ?: "Fecha de vencimiento"
+            val pIndex = priorityValues.indexOf(task.priority)
+            if (pIndex >= 0) spinnerPriority.setSelection(pIndex)
         }
 
         textViewTaskDueDate.setOnClickListener { showDatePicker() }
@@ -126,18 +137,24 @@ class AddTaskDialogFragment : DialogFragment() {
             editTextTitle.error = "El título no puede estar vacío"
             return
         }
+        if (title.length > 100) {
+            editTextTitle.error = "El título no puede exceder 100 caracteres"
+            return
+        }
 
         val description = editTextDescription.text?.toString()?.trim()
         val subjectName = spinnerSubject.selectedItem?.toString()?.let {
             if (it == "Ninguna") null else it
         }
+        val priority = priorityValues.getOrElse(spinnerPriority.selectedItemPosition) { Task.PRIORITY_MEDIUM }
 
         if (isEditing && originalTask != null) {
             val updated = originalTask!!.copy(
                 title = title,
                 description = description,
                 dueDate = selectedDueDate,
-                subjectName = subjectName
+                subjectName = subjectName,
+                priority = priority
             )
             viewModel.updateTask(updated, requireContext())
             viewModel.finishSelectionMode()
@@ -146,7 +163,8 @@ class AddTaskDialogFragment : DialogFragment() {
                 title = title,
                 description = description,
                 dueDate = selectedDueDate,
-                subjectName = subjectName
+                subjectName = subjectName,
+                priority = priority
             )
             viewModel.addTask(task, requireContext())
         }

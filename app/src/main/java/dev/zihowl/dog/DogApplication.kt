@@ -22,7 +22,8 @@ class DogApplication : Application() {
         repository = DogRepository(
             db.subjectDao(),
             db.taskDao(),
-            db.noteDao()
+            db.noteDao(),
+            db.manualEventDao()
         )
 
         NotificationHelper.createNotificationChannel(this)

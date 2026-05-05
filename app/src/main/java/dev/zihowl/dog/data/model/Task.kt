@@ -14,5 +14,12 @@ data class Task(
     val dueDate: Date? = null,
     val isCompleted: Boolean = false,
     val subjectName: String? = null,
-    val owner: String = ""
-) : Serializable
+    val owner: String = "",
+    val priority: String = "MEDIUM"
+) : Serializable {
+    companion object {
+        const val PRIORITY_HIGH = "HIGH"
+        const val PRIORITY_MEDIUM = "MEDIUM"
+        const val PRIORITY_LOW = "LOW"
+    }
+}

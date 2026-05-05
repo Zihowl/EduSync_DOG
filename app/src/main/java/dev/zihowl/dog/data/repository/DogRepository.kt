@@ -1,9 +1,11 @@
 package dev.zihowl.dog.data.repository
 
 import androidx.lifecycle.LiveData
+import dev.zihowl.dog.data.local.ManualEventDao
 import dev.zihowl.dog.data.local.NoteDao
 import dev.zihowl.dog.data.local.SubjectDao
 import dev.zihowl.dog.data.local.TaskDao
+import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Note
 import dev.zihowl.dog.data.model.Subject
 import dev.zihowl.dog.data.model.Task
@@ -13,7 +15,8 @@ import kotlinx.coroutines.withContext
 class DogRepository(
     private val subjectDao: SubjectDao,
     private val taskDao: TaskDao,
-    private val noteDao: NoteDao
+    private val noteDao: NoteDao,
+    private val manualEventDao: ManualEventDao
 ) {
     val allSubjects: LiveData<List<Subject>> = subjectDao.getAll()
     val allTasks: LiveData<List<Task>> = taskDao.getAll()
@@ -164,6 +167,44 @@ class DogRepository(
                 val notesCount = noteDao.getBySubjectName(subject.name).size
                 subjectDao.update(subject.copy(tasksPending = pendingCount, notesCount = notesCount))
             }
+        }
+    }
+
+    val allManualEvents: LiveData<List<ManualEvent>> = manualEventDao.getAll()
+
+    suspend fun addManualEvent(event: ManualEvent) {
+        withContext(Dispatchers.IO) {
+            manualEventDao.insert(event)
+        }
+    }
+
+    suspend fun updateManualEvent(event: ManualEvent) {
+        withContext(Dispatchers.IO) {
+            manualEventDao.update(event)
+        }
+    }
+
+    suspend fun deleteManualEvents(events: List<ManualEvent>) {
+        withContext(Dispatchers.IO) {
+            manualEventDao.deleteAll(events)
+        }
+    }
+
+    suspend fun getManualEventsByDayOfWeek(dayOfWeek: Int): List<ManualEvent> {
+        return withContext(Dispatchers.IO) {
+            manualEventDao.getByDayOfWeek(dayOfWeek)
+        }
+    }
+
+    suspend fun getManualEventsByDate(date: java.util.Date): List<ManualEvent> {
+        return withContext(Dispatchers.IO) {
+            manualEventDao.getByDate(date.time)
+        }
+    }
+
+    suspend fun getAllManualEventsList(): List<ManualEvent> {
+        return withContext(Dispatchers.IO) {
+            manualEventDao.getAllList()
         }
     }
 }
