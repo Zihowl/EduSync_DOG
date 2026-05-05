@@ -8,24 +8,30 @@ import android.os.Bundle
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Spinner
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Subject
-import kotlinx.coroutines.launch
+import dev.zihowl.dog.ui.main.MainActivity
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -47,10 +53,13 @@ class ScheduleFragment : Fragment() {
     private lateinit var viewModel: ScheduleViewModel
     private lateinit var scheduleContainer: FrameLayout
     private lateinit var hoursColumn: LinearLayout
-    private lateinit var daySelectorSpinner: Spinner
     private lateinit var scheduleScrollView: ScrollView
     private lateinit var emptyScheduleText: TextView
     private lateinit var buttonSelectDate: MaterialButton
+    private lateinit var textSelectedDay: TextView
+    private lateinit var recyclerViewManualEvents: RecyclerView
+    private lateinit var adapter: ManualEventsAdapter
+    private lateinit var backPressedCallback: OnBackPressedCallback
     private var timeGrid: View? = null
 
     companion object {
@@ -58,13 +67,29 @@ class ScheduleFragment : Fragment() {
         private const val DAY_WIDTH_DP = 300
         private const val START_HOUR = 0
         private const val END_HOUR = 24
+        private const val HEADER_UNIQUE = "Eventos únicos"
+        private const val HEADER_RECURRENT = "Eventos recurrentes"
     }
 
     private lateinit var weekDays: List<String>
-    private var selectedDay: String? = null
     private var selectedDate: Date = Date()
     private var allSubjects: List<Subject> = emptyList()
     private var allManualEvents: List<ManualEvent> = emptyList()
+    private var isListView = false
+    private var selectedManualEvents = mutableSetOf<ManualEvent>()
+    private var isSelectionMode = false
+    private var isUniqueExpanded = true
+    private var isRecurrentExpanded = true
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        backPressedCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                finishSelectionMode()
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback)
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         return inflater.inflate(R.layout.fragment_schedule, container, false)
@@ -75,38 +100,21 @@ class ScheduleFragment : Fragment() {
 
         scheduleContainer = view.findViewById(R.id.schedule_container)
         hoursColumn = view.findViewById(R.id.hours_column)
-        daySelectorSpinner = view.findViewById(R.id.day_selector_spinner)
         scheduleScrollView = view.findViewById(R.id.schedule_scroll_view)
         emptyScheduleText = view.findViewById(R.id.empty_schedule_text)
         buttonSelectDate = view.findViewById(R.id.buttonSelectDate)
+        textSelectedDay = view.findViewById(R.id.textSelectedDay)
+        recyclerViewManualEvents = view.findViewById(R.id.recyclerViewManualEvents)
 
         weekDays = resources.getStringArray(R.array.week_days).toList()
         viewModel = ViewModelProvider(requireActivity())[ScheduleViewModel::class.java]
 
         setupDatePicker()
-        setupDaySelector()
         setupGrid()
+        setupManualEventsList()
+        setupMenu()
         observeData()
-    }
-
-    private fun setupDaySelector() {
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, weekDays)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        daySelectorSpinner.adapter = adapter
-
-        val calendar = Calendar.getInstance()
-        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-        val todayIndex = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - 2
-        daySelectorSpinner.setSelection(todayIndex)
-        selectedDay = weekDays.getOrNull(todayIndex)
-
-        daySelectorSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                selectedDay = weekDays[position]
-                refreshSchedule()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
+        updateSelectedDayText()
     }
 
     private fun setupDatePicker() {
@@ -120,10 +128,7 @@ class ScheduleFragment : Fragment() {
                     calendar.set(year, month, dayOfMonth)
                     selectedDate = calendar.time
                     buttonSelectDate.text = sdf.format(selectedDate)
-                    val dow = calendar.get(Calendar.DAY_OF_WEEK)
-                    val idx = if (dow == Calendar.SUNDAY) 6 else dow - 2
-                    daySelectorSpinner.setSelection(idx)
-                    selectedDay = weekDays[idx]
+                    updateSelectedDayText()
                     refreshSchedule()
                 },
                 calendar.get(Calendar.YEAR),
@@ -131,6 +136,13 @@ class ScheduleFragment : Fragment() {
                 calendar.get(Calendar.DAY_OF_MONTH)
             ).show()
         }
+    }
+
+    private fun updateSelectedDayText() {
+        val cal = Calendar.getInstance().apply { time = selectedDate }
+        val dow = cal.get(Calendar.DAY_OF_WEEK)
+        val idx = if (dow == Calendar.SUNDAY) 6 else dow - 2
+        textSelectedDay.text = weekDays.getOrNull(idx) ?: ""
     }
 
     private fun setupGrid() {
@@ -148,6 +160,81 @@ class ScheduleFragment : Fragment() {
         scheduleContainer.addView(timeGrid)
     }
 
+    private fun setupManualEventsList() {
+        recyclerViewManualEvents.layoutManager = LinearLayoutManager(context)
+        adapter = ManualEventsAdapter(
+            onItemClick = { event ->
+                if (isSelectionMode) {
+                    toggleSelection(event)
+                } else {
+                    showEditEventDialog(event)
+                }
+            },
+            onItemLongClick = { event ->
+                if (!isSelectionMode) startSelectionMode()
+                toggleSelection(event)
+            },
+            onHeaderClick = { headerTitle ->
+                when (headerTitle) {
+                    HEADER_UNIQUE -> isUniqueExpanded = !isUniqueExpanded
+                    HEADER_RECURRENT -> isRecurrentExpanded = !isRecurrentExpanded
+                }
+                refreshManualEventsList()
+            }
+        )
+        recyclerViewManualEvents.adapter = adapter
+    }
+
+    private fun showEditEventDialog(event: ManualEvent) {
+        AddManualEventDialogFragment.newInstance(event)
+            .show(parentFragmentManager, "EditManualEventDialog")
+    }
+
+    private fun showDeleteEventConfirmation(events: List<ManualEvent>) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Confirmar Eliminación")
+            .setMessage("¿Estás seguro de que quieres eliminar el evento seleccionado?")
+            .setPositiveButton("Eliminar") { _, _ ->
+                viewModel.deleteManualEvents(events)
+                finishSelectionMode()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun startSelectionMode() {
+        isSelectionMode = true
+        selectedManualEvents.clear()
+        adapter.setSelectedItems(selectedManualEvents)
+        backPressedCallback.isEnabled = true
+        requireActivity().invalidateOptionsMenu()
+    }
+
+    private fun finishSelectionMode() {
+        isSelectionMode = false
+        selectedManualEvents.clear()
+        adapter.setSelectedItems(selectedManualEvents)
+        backPressedCallback.isEnabled = false
+        updateActionBarTitle("Horario")
+        requireActivity().invalidateOptionsMenu()
+    }
+
+    private fun toggleSelection(event: ManualEvent) {
+        if (selectedManualEvents.contains(event)) {
+            selectedManualEvents.remove(event)
+        } else {
+            selectedManualEvents.add(event)
+        }
+        adapter.setSelectedItems(selectedManualEvents)
+        val count = selectedManualEvents.size
+        if (count == 0) {
+            finishSelectionMode()
+        } else {
+            updateActionBarTitle("$count seleccionados")
+        }
+        requireActivity().invalidateOptionsMenu()
+    }
+
     private fun observeData() {
         viewModel.subjects.observe(viewLifecycleOwner) { subjects ->
             allSubjects = subjects ?: emptyList()
@@ -156,11 +243,15 @@ class ScheduleFragment : Fragment() {
         viewModel.manualEvents.observe(viewLifecycleOwner) { events ->
             allManualEvents = events ?: emptyList()
             refreshSchedule()
+            refreshManualEventsList()
         }
     }
 
     private fun refreshSchedule() {
-        val dayName = selectedDay ?: return
+        if (isListView) return
+        val cal = Calendar.getInstance().apply { time = selectedDate }
+        val selectedDow = cal.get(Calendar.DAY_OF_WEEK)
+        val dayName = weekDays.getOrNull(if (selectedDow == Calendar.SUNDAY) 6 else selectedDow - 2) ?: return
         clearEvents()
 
         val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -183,10 +274,6 @@ class ScheduleFragment : Fragment() {
                 } catch (_: Exception) { }
             }
         }
-
-        val cal = Calendar.getInstance().apply { time = selectedDate }
-        val selectedDow = cal.get(Calendar.DAY_OF_WEEK)
-        val selectedDateOnly = cal.time
 
         for (event in allManualEvents) {
             val include = when (event.frequencyType) {
@@ -222,6 +309,58 @@ class ScheduleFragment : Fragment() {
             val scrollPos = if (firstEventStart > 0) (firstEventStart / 60f) * HOUR_HEIGHT_DP else 0f
             scheduleScrollView.post { scheduleScrollView.scrollTo(0, dpToPx(scrollPos.toInt())) }
         }
+    }
+
+    private fun refreshManualEventsList() {
+        if (!isListView) return
+        val today = Date()
+
+        val uniqueEvents = allManualEvents.filter {
+            it.frequencyType == ManualEvent.FREQUENCY_UNIQUE && it.date != null
+        }.sortedWith(compareBy { Math.abs(it.date!!.time - today.time) })
+
+        val recurrentEvents = allManualEvents.filter {
+            it.frequencyType == ManualEvent.FREQUENCY_RECURRENT
+        }.sortedWith(compareBy({ it.dayOfWeek }, { it.startTime }))
+
+        val displayList = mutableListOf<Any>()
+        if (uniqueEvents.isNotEmpty()) {
+            displayList.add(HEADER_UNIQUE)
+            if (isUniqueExpanded) displayList.addAll(uniqueEvents)
+        }
+        if (recurrentEvents.isNotEmpty()) {
+            displayList.add(HEADER_RECURRENT)
+            if (isRecurrentExpanded) displayList.addAll(recurrentEvents)
+        }
+
+        adapter.submitList(displayList)
+        adapter.setExpandedHeaders(setOf(
+            HEADER_UNIQUE.takeIf { isUniqueExpanded },
+            HEADER_RECURRENT.takeIf { isRecurrentExpanded }
+        ).filterNotNull().toSet())
+
+        emptyScheduleText.visibility = if (uniqueEvents.isEmpty() && recurrentEvents.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun toggleViewMode() {
+        isListView = !isListView
+        if (isListView) {
+            scheduleScrollView.visibility = View.GONE
+            hoursColumn.visibility = View.GONE
+            recyclerViewManualEvents.visibility = View.VISIBLE
+            buttonSelectDate.visibility = View.GONE
+            textSelectedDay.visibility = View.GONE
+            refreshManualEventsList()
+        } else {
+            scheduleScrollView.visibility = View.VISIBLE
+            hoursColumn.visibility = View.VISIBLE
+            recyclerViewManualEvents.visibility = View.GONE
+            buttonSelectDate.visibility = View.VISIBLE
+            textSelectedDay.visibility = View.VISIBLE
+            refreshSchedule()
+        }
+        finishSelectionMode()
+        requireActivity().invalidateOptionsMenu()
     }
 
     private fun renderItems(items: List<ScheduleItem>) {
@@ -281,6 +420,7 @@ class ScheduleFragment : Fragment() {
         val topMargin = (item.startMinutes / 60f) * HOUR_HEIGHT_DP
         val colWidth = DAY_WIDTH_DP / item.totalColumns
         val leftMargin = item.column * dpToPx(colWidth)
+        val marginPx = dpToPx(2)
 
         val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
         val startCal = Calendar.getInstance().apply {
@@ -291,28 +431,43 @@ class ScheduleFragment : Fragment() {
             set(Calendar.HOUR_OF_DAY, (item.endMinutes / 60).toInt())
             set(Calendar.MINUTE, (item.endMinutes % 60).toInt())
         }
-        val locText = item.location?.let { " @$it" } ?: ""
-        val eventText = if (height < HOUR_HEIGHT_DP * 0.75f) {
-            item.name + locText
-        } else {
-            String.format("%s%s\n%s - %s", item.name, locText, timeFormat.format(startCal.time), timeFormat.format(endCal.time))
+        val locText = if (!item.location.isNullOrBlank()) " @${item.location}" else ""
+        val isShort = height < HOUR_HEIGHT_DP * 0.75f
+        val isNarrow = colWidth < 120
+        val approxLineHeightDp = 14
+        val maxLines = if (isShort) 1 else (height / approxLineHeightDp).toInt().coerceAtLeast(2)
+
+        val eventText = when {
+            isShort -> item.name + locText
+            isNarrow -> String.format(
+                "%s%s\n%s\n%s",
+                item.name,
+                locText,
+                timeFormat.format(startCal.time),
+                timeFormat.format(endCal.time)
+            )
+            else -> String.format(
+                "%s%s\n%s - %s",
+                item.name,
+                locText,
+                timeFormat.format(startCal.time),
+                timeFormat.format(endCal.time)
+            )
         }
-        if (height < HOUR_HEIGHT_DP * 0.75f) {
-            eventTextView.setPadding(0, 0, 0, 0)
+
+        cardView?.setContentPadding(0, 0, 0, 0)
+        eventTextView.includeFontPadding = false
+        if (isShort) {
             eventTextView.maxLines = 1
-            eventTextView.ellipsize = TextUtils.TruncateAt.END
-            eventTextView.includeFontPadding = false
-            cardView?.setContentPadding(0, 0, 0, 0)
         } else {
-            eventTextView.maxLines = 2
-            eventTextView.ellipsize = null
-            eventTextView.includeFontPadding = true
+            eventTextView.maxLines = maxLines
         }
+        eventTextView.ellipsize = TextUtils.TruncateAt.END
         eventTextView.text = eventText
 
-        val params = FrameLayout.LayoutParams(dpToPx(colWidth), dpToPx(height.toInt()))
-        params.topMargin = dpToPx(topMargin.toInt())
-        params.leftMargin = leftMargin
+        val params = FrameLayout.LayoutParams(dpToPx(colWidth) - marginPx * 2, dpToPx(height.toInt()) - marginPx * 2)
+        params.topMargin = dpToPx(topMargin.toInt()) + marginPx
+        params.leftMargin = leftMargin + marginPx
         params.gravity = Gravity.TOP or Gravity.START
 
         scheduleContainer.addView(eventView, params)
@@ -345,5 +500,55 @@ class ScheduleFragment : Fragment() {
 
     private fun dpToPx(dp: Int): Int {
         return (dp * resources.displayMetrics.density).toInt()
+    }
+
+    private fun setupMenu() {
+        requireActivity().addMenuProvider(object : MenuProvider {
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {}
+
+            override fun onPrepareMenu(menu: Menu) {
+                if (!isResumed || isNotCurrentFragment()) return
+                val isSelection = isSelectionMode
+                val selectedCount = selectedManualEvents.size
+                menu.findItem(R.id.action_add)?.isVisible = !isSelection && !isListView
+                menu.findItem(R.id.action_delete)?.isVisible = isSelection
+                menu.findItem(R.id.action_edit)?.isVisible = isSelection && selectedCount == 1
+                val toggleItem = menu.findItem(R.id.action_toggle_view)
+                toggleItem?.isVisible = !isSelection
+                toggleItem?.setIcon(if (isListView) R.drawable.ic_view_calendar else R.drawable.ic_view_list)
+                toggleItem?.title = if (isListView) "Ver calendario" else "Ver lista"
+            }
+
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+                if (!isResumed || isNotCurrentFragment()) return false
+                return when (menuItem.itemId) {
+                    R.id.action_delete -> {
+                        if (isSelectionMode && selectedManualEvents.isNotEmpty()) {
+                            showDeleteEventConfirmation(selectedManualEvents.toList())
+                        }
+                        true
+                    }
+                    R.id.action_edit -> {
+                        if (isSelectionMode && selectedManualEvents.size == 1) {
+                            showEditEventDialog(selectedManualEvents.first())
+                        }
+                        true
+                    }
+                    R.id.action_toggle_view -> {
+                        toggleViewMode()
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun updateActionBarTitle(title: String) {
+        (activity as? AppCompatActivity)?.supportActionBar?.title = title
+    }
+
+    private fun isNotCurrentFragment(): Boolean {
+        return (activity as? MainActivity)?.isCurrentTab(3) != true
     }
 }

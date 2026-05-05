@@ -8,14 +8,15 @@
     app:cardElevation="0dp"
     app:strokeWidth="0dp"
     app:shapeAppearance="?attr/shapeAppearanceSmallComponent"
-    app:cardUseCompatPadding="true">
+    app:cardUseCompatPadding="false">
 
     <TextView
         android:id="@+id/event_text"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:gravity="center"
-        android:padding="@dimen/space_xs"
+        android:paddingHorizontal="1dp"
+        android:paddingVertical="0dp"
         android:textAppearance="?attr/textAppearanceLabelMedium"
         android:textColor="?attr/colorOnPrimaryContainer"
         android:textSize="11sp"

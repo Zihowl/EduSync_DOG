@@ -226,10 +226,11 @@ class AddManualEventDialogFragment : DialogFragment() {
             return
         }
 
+        val locationRaw = editTextLocation.text?.toString()?.trim()
         val event = ManualEvent(
             id = originalEvent?.id ?: 0,
             title = title,
-            location = editTextLocation.text?.toString()?.trim(),
+            location = if (locationRaw.isNullOrBlank()) null else locationRaw,
             startTime = startTime24h!!,
             endTime = endTime24h!!,
             frequencyType = frequencyType,

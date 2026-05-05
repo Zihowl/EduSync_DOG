@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     tools:context=".ui.schedule.ScheduleFragment">
 
     <LinearLayout
+        android:id="@+id/schedule_header"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
         android:orientation="horizontal"
-        android:layout_margin="8dp">
+        android:gravity="center_vertical"
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/textSelectedDay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginEnd="8dp"
+            tools:text="Lunes" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/buttonSelectDate"
@@ -19,18 +31,13 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Fecha" />
-
-        <Spinner
-            android:id="@+id/day_selector_spinner"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="2"
-            android:layout_marginStart="8dp" />
     </LinearLayout>
 
     <RelativeLayout
+        android:id="@+id/schedule_content_container"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:layout_below="@id/schedule_header">
 
         <TextView
             android:id="@+id/empty_schedule_text"
@@ -64,5 +71,15 @@
 
             </LinearLayout>
         </ScrollView>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewManualEvents"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false"
+            android:visibility="gone"
+            tools:listitem="@layout/item_manual_event" />
     </RelativeLayout>
-</LinearLayout>
+
+</RelativeLayout>
