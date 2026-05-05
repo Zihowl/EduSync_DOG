@@ -4,10 +4,12 @@ import androidx.lifecycle.LiveData
 import dev.zihowl.dog.data.local.ManualEventDao
 import dev.zihowl.dog.data.local.NoteDao
 import dev.zihowl.dog.data.local.SubjectDao
+import dev.zihowl.dog.data.local.SyncQueueDao
 import dev.zihowl.dog.data.local.TaskDao
 import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Note
 import dev.zihowl.dog.data.model.Subject
+import dev.zihowl.dog.data.model.SyncQueueItem
 import dev.zihowl.dog.data.model.Task
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,7 +18,8 @@ class DogRepository(
     private val subjectDao: SubjectDao,
     private val taskDao: TaskDao,
     private val noteDao: NoteDao,
-    private val manualEventDao: ManualEventDao
+    private val manualEventDao: ManualEventDao,
+    private val syncQueueDao: SyncQueueDao
 ) {
     val allSubjects: LiveData<List<Subject>> = subjectDao.getAll()
     val allTasks: LiveData<List<Task>> = taskDao.getAll()
@@ -28,7 +31,7 @@ class DogRepository(
         }
     }
 
-    suspend fun addSubject(name: String, professorName: String, schedule: String): Boolean {
+    suspend fun addSubject(name: String, professorName: String, schedule: String, owner: String = ""): Boolean {
         return withContext(Dispatchers.IO) {
             if (subjectDao.exists(name)) {
                 false
@@ -37,7 +40,8 @@ class DogRepository(
                     Subject(
                         name = name,
                         professorName = professorName,
-                        schedule = schedule
+                        schedule = schedule,
+                        owner = owner
                     )
                 )
                 true
@@ -132,21 +136,21 @@ class DogRepository(
         }
     }
 
-    suspend fun getAllSubjectsList(): List<Subject> {
+    suspend fun getAllSubjectsList(owner: String = ""): List<Subject> {
         return withContext(Dispatchers.IO) {
-            subjectDao.getAllList()
+            if (owner.isBlank()) subjectDao.getAllList() else subjectDao.getAllForOwner(owner)
         }
     }
 
-    suspend fun getAllTasksList(): List<Task> {
+    suspend fun getAllTasksList(owner: String = ""): List<Task> {
         return withContext(Dispatchers.IO) {
-            taskDao.getAllList()
+            if (owner.isBlank()) taskDao.getAllList() else taskDao.getAllForOwner(owner)
         }
     }
 
-    suspend fun getAllNotesList(): List<Note> {
+    suspend fun getAllNotesList(owner: String = ""): List<Note> {
         return withContext(Dispatchers.IO) {
-            noteDao.getAllList()
+            if (owner.isBlank()) noteDao.getAllList() else noteDao.getAllForOwner(owner)
         }
     }
 
@@ -202,9 +206,33 @@ class DogRepository(
         }
     }
 
-    suspend fun getAllManualEventsList(): List<ManualEvent> {
+    suspend fun getAllManualEventsList(owner: String = ""): List<ManualEvent> {
         return withContext(Dispatchers.IO) {
-            manualEventDao.getAllList()
+            if (owner.isBlank()) manualEventDao.getAllList() else manualEventDao.getAllForOwner(owner)
+        }
+    }
+
+    suspend fun getPendingSyncCount(owner: String): Int {
+        return withContext(Dispatchers.IO) {
+            syncQueueDao.getPendingCountForOwner(owner)
+        }
+    }
+
+    suspend fun getPendingSyncItems(owner: String): List<SyncQueueItem> {
+        return withContext(Dispatchers.IO) {
+            syncQueueDao.getAllListForOwner(owner)
+        }
+    }
+
+    suspend fun enqueueSyncItem(item: SyncQueueItem) {
+        withContext(Dispatchers.IO) {
+            syncQueueDao.insert(item)
+        }
+    }
+
+    suspend fun clearSyncQueue(owner: String) {
+        withContext(Dispatchers.IO) {
+            syncQueueDao.clearForOwner(owner)
         }
     }
 }

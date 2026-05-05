@@ -13,15 +13,15 @@ class ScheduleViewModel(private val repository: DogRepository) : ViewModel() {
     val subjects: LiveData<List<Subject>> = repository.allSubjects
     val manualEvents: LiveData<List<ManualEvent>> = repository.allManualEvents
 
-    fun addManualEvent(event: ManualEvent) {
+    fun addManualEvent(event: ManualEvent, owner: String = "") {
         viewModelScope.launch {
-            repository.addManualEvent(event)
+            repository.addManualEvent(event.copy(owner = owner))
         }
     }
 
-    fun updateManualEvent(event: ManualEvent) {
+    fun updateManualEvent(event: ManualEvent, owner: String = "") {
         viewModelScope.launch {
-            repository.updateManualEvent(event)
+            repository.updateManualEvent(event.copy(owner = owner))
         }
     }
 

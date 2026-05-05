@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.textfield.TextInputEditText
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Note
+import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.utils.AttachmentUtils
 
 class AddNoteDialogFragment : DialogFragment() {
@@ -128,6 +129,8 @@ class AddNoteDialogFragment : DialogFragment() {
         val subjectName = spinnerSubject.text.toString().let {
             if (it == "Ninguna") null else it
         }
+        val sessionManager = SessionManager(requireContext())
+        val owner = sessionManager.username
 
         if (isEditing && originalNote != null) {
             val updated = originalNote!!.copy(
@@ -136,7 +139,8 @@ class AddNoteDialogFragment : DialogFragment() {
                 subjectName = subjectName,
                 attachmentPath = selectedAttachmentPath,
                 attachmentName = selectedAttachmentName,
-                attachmentSize = selectedAttachmentSize
+                attachmentSize = selectedAttachmentSize,
+                owner = owner
             )
             viewModel.updateNote(updated, requireContext())
             viewModel.finishSelectionMode()
@@ -147,9 +151,10 @@ class AddNoteDialogFragment : DialogFragment() {
                 subjectName = subjectName,
                 attachmentPath = selectedAttachmentPath,
                 attachmentName = selectedAttachmentName,
-                attachmentSize = selectedAttachmentSize
+                attachmentSize = selectedAttachmentSize,
+                owner = owner
             )
-            viewModel.addNote(note, requireContext())
+            viewModel.addNote(note, requireContext(), owner)
         }
         dismiss()
     }

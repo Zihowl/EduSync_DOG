@@ -51,9 +51,9 @@ class TasksViewModel(private val repository: DogRepository) : ViewModel() {
         }
     }
 
-    fun addTask(task: Task, context: Context) {
+    fun addTask(task: Task, context: Context, owner: String = "") {
         viewModelScope.launch {
-            repository.addTask(task)
+            repository.addTask(task.copy(owner = owner))
             Toast.makeText(context, "Tarea '${task.title}' añadida", Toast.LENGTH_SHORT).show()
         }
     }

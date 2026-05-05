@@ -23,7 +23,8 @@ class DogApplication : Application() {
             db.subjectDao(),
             db.taskDao(),
             db.noteDao(),
-            db.manualEventDao()
+            db.manualEventDao(),
+            db.syncQueueDao()
         )
 
         NotificationHelper.createNotificationChannel(this)

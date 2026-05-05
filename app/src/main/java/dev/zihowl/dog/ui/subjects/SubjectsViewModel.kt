@@ -36,13 +36,13 @@ class SubjectsViewModel(private val repository: DogRepository) : ViewModel() {
         repository.allNotes.observeForever(notesObserver)
     }
 
-    fun addSubject(name: String, professorName: String, schedule: String, context: Context) {
+    fun addSubject(name: String, professorName: String, schedule: String, context: Context, owner: String = "") {
         viewModelScope.launch {
-            val created = repository.addSubject(name, professorName, schedule)
-            if (created) {
-                Toast.makeText(context, "Materia '$name' guardada", Toast.LENGTH_SHORT).show()
-            } else {
+            if (repository.subjectExists(name)) {
                 Toast.makeText(context, "Ya existe una materia con ese nombre", Toast.LENGTH_LONG).show()
+            } else {
+                repository.addSubject(name, professorName, schedule, owner)
+                Toast.makeText(context, "Materia '$name' guardada", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -20,9 +20,9 @@ class NotesViewModel(private val repository: DogRepository) : ViewModel() {
     private val _selectedNotes = MutableLiveData<Set<Note>>(emptySet())
     val selectedNotes: LiveData<Set<Note>> = _selectedNotes
 
-    fun addNote(note: Note, context: Context) {
+    fun addNote(note: Note, context: Context, owner: String = "") {
         viewModelScope.launch {
-            repository.addNote(note)
+            repository.addNote(note.copy(owner = owner))
             Toast.makeText(context, "Nota '${note.title}' creada", Toast.LENGTH_SHORT).show()
         }
     }

@@ -24,6 +24,7 @@ import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.session.SessionManager
+import dev.zihowl.dog.data.sync.SyncStatusManager
 import dev.zihowl.dog.ui.ViewModelFactory
 import dev.zihowl.dog.ui.notes.AddNoteDialogFragment
 import dev.zihowl.dog.ui.notes.NotesViewModel
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity(),
     private lateinit var notesViewModel: NotesViewModel
     private lateinit var scheduleViewModel: ScheduleViewModel
     private lateinit var sessionManager: SessionManager
+    private lateinit var syncStatusManager: SyncStatusManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,10 +69,22 @@ class MainActivity : AppCompatActivity(),
 
         setupViewModels()
         setupToolbarAndDrawer()
+        setupSyncStatus()
         setupAuthButtons()
         setupViewPagerAndTabs()
 
         supportFragmentManager.addOnBackStackChangedListener(this)
+    }
+
+    private fun setupSyncStatus() {
+        syncStatusManager = SyncStatusManager(this)
+        syncStatusManager.syncStatus.observe(this) { status ->
+            if (!sessionManager.isGuestMode) {
+                val headerView = findViewById<NavigationView>(R.id.nav_view).getHeaderView(0)
+                val headerSyncStatus = headerView.findViewById<TextView>(R.id.header_sync_status)
+                headerSyncStatus.text = status
+            }
+        }
     }
 
     private fun setupViewModels() {
@@ -304,9 +318,12 @@ class MainActivity : AppCompatActivity(),
             headerSyncStatus.text = getString(R.string.sync_offline)
             headerSyncStatus.visibility = View.VISIBLE
             syncButton?.visibility = View.GONE
+            loginButton?.let { (it.parent as? View)?.visibility = View.VISIBLE }
+            logoutButton?.let { (it.parent as? View)?.visibility = View.GONE }
         } else {
-            headerSyncStatus.text = getString(R.string.sync_connected)
+            headerSyncStatus.text = syncStatusManager.syncStatus.value ?: getString(R.string.sync_connected)
             syncButton?.visibility = View.VISIBLE
+            updateAuthButtonVisibility()
         }
 
         loginButton?.setOnClickListener {
@@ -317,7 +334,11 @@ class MainActivity : AppCompatActivity(),
             navigateToServerConnection()
         }
 
-        updateAuthButtonVisibility()
+        syncButton?.setOnClickListener {
+            if (!sessionManager.isGuestMode) {
+                Toast.makeText(this, "Sincronizando cambios...", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun navigateToServerConnection() {
@@ -328,11 +349,19 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun updateAuthButtonVisibility() {
+        if (sessionManager.isGuestMode) return
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
         val loginButton = navigationView.findViewById<View?>(R.id.nav_login_button)
         val logoutButton = navigationView.findViewById<View?>(R.id.nav_logout_button)
 
         loginButton?.let { (it.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.GONE else View.VISIBLE }
         logoutButton?.let { (it.parent as? View)?.visibility = if (sessionManager.isLoggedIn) View.VISIBLE else View.GONE }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::syncStatusManager.isInitialized) {
+            syncStatusManager.unregister()
+        }
     }
 }

@@ -8,16 +8,18 @@ import androidx.room.TypeConverters
 import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Note
 import dev.zihowl.dog.data.model.Subject
+import dev.zihowl.dog.data.model.SyncQueueItem
 import dev.zihowl.dog.data.model.Task
 import net.sqlcipher.database.SupportFactory
 
-@Database(entities = [Subject::class, Task::class, Note::class, ManualEvent::class], version = 6, exportSchema = false)
+@Database(entities = [Subject::class, Task::class, Note::class, ManualEvent::class, SyncQueueItem::class], version = 7, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun subjectDao(): SubjectDao
     abstract fun taskDao(): TaskDao
     abstract fun noteDao(): NoteDao
     abstract fun manualEventDao(): ManualEventDao
+    abstract fun syncQueueDao(): SyncQueueDao
 
     companion object {
         @Volatile

@@ -20,6 +20,7 @@ import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Subject
+import dev.zihowl.dog.data.session.SessionManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -155,11 +156,13 @@ class AddSubjectDialogFragment : DialogFragment() {
 
         if (scheduleString == null) return
 
+        val sessionManager = SessionManager(requireContext())
+        val owner = sessionManager.username
         if (isEditing && originalSubject != null) {
             viewModel.updateSubject(originalSubject!!, name, professorName, scheduleString)
             Toast.makeText(context, "Materia '$name' actualizada", Toast.LENGTH_SHORT).show()
         } else {
-            viewModel.addSubject(name, professorName, scheduleString, requireContext())
+            viewModel.addSubject(name, professorName, scheduleString, requireContext(), owner)
         }
 
         viewModel.finishSelectionMode()

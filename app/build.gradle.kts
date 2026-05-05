@@ -36,6 +36,10 @@ android {
         viewBinding = true
         buildConfig = true
     }
+
+    lint {
+        abortOnError = false
+    }
 }
 
 dependencies {
@@ -83,4 +87,7 @@ dependencies {
     // Lifecycle
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
 }

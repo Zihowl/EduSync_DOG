@@ -20,6 +20,7 @@ import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.ManualEvent
+import dev.zihowl.dog.data.session.SessionManager
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -227,6 +228,8 @@ class AddManualEventDialogFragment : DialogFragment() {
         }
 
         val locationRaw = editTextLocation.text?.toString()?.trim()
+        val sessionManager = SessionManager(requireContext())
+        val owner = sessionManager.username
         val event = ManualEvent(
             id = originalEvent?.id ?: 0,
             title = title,
@@ -235,14 +238,15 @@ class AddManualEventDialogFragment : DialogFragment() {
             endTime = endTime24h!!,
             frequencyType = frequencyType,
             dayOfWeek = dayOfWeek,
-            date = if (!isRecurrent) selectedDate else null
+            date = if (!isRecurrent) selectedDate else null,
+            owner = owner
         )
 
         if (isEditing) {
-            viewModel.updateManualEvent(event)
+            viewModel.updateManualEvent(event, owner)
             Toast.makeText(context, "Evento actualizado", Toast.LENGTH_SHORT).show()
         } else {
-            viewModel.addManualEvent(event)
+            viewModel.addManualEvent(event, owner)
             Toast.makeText(context, "Evento creado", Toast.LENGTH_SHORT).show()
         }
         dismiss()

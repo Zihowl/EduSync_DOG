@@ -18,6 +18,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.textfield.TextInputEditText
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Task
+import dev.zihowl.dog.data.session.SessionManager
 import java.util.Calendar
 import java.util.Date
 
@@ -141,12 +142,18 @@ class AddTaskDialogFragment : DialogFragment() {
             editTextTitle.error = "El título no puede exceder 100 caracteres"
             return
         }
+        if (selectedDueDate == null) {
+            Toast.makeText(context, "La fecha de vencimiento es obligatoria", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         val description = editTextDescription.text?.toString()?.trim()
         val subjectName = spinnerSubject.selectedItem?.toString()?.let {
             if (it == "Ninguna") null else it
         }
         val priority = priorityValues.getOrElse(spinnerPriority.selectedItemPosition) { Task.PRIORITY_MEDIUM }
+        val sessionManager = SessionManager(requireContext())
+        val owner = sessionManager.username
 
         if (isEditing && originalTask != null) {
             val updated = originalTask!!.copy(
@@ -155,7 +162,8 @@ class AddTaskDialogFragment : DialogFragment() {
                 dueDate = selectedDueDate,
                 subjectName = subjectName,
                 priority = priority,
-                status = originalTask!!.status
+                status = originalTask!!.status,
+                owner = owner
             )
             viewModel.updateTask(updated, requireContext())
             viewModel.finishSelectionMode()
@@ -165,9 +173,10 @@ class AddTaskDialogFragment : DialogFragment() {
                 description = description,
                 dueDate = selectedDueDate,
                 subjectName = subjectName,
-                priority = priority
+                priority = priority,
+                owner = owner
             )
-            viewModel.addTask(task, requireContext())
+            viewModel.addTask(task, requireContext(), owner)
         }
         dismiss()
     }
