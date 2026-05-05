@@ -35,5 +35,15 @@
             android:layout_marginTop="@dimen/space_sm"
             android:textAppearance="?attr/textAppearanceLabelMedium"
             android:textColor="?attr/colorPrimary" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonOpenAttachment"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_sm"
+            android:text="Ver adjunto"
+            android:visibility="gone"
+            app:icon="@android:drawable/ic_menu_view" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

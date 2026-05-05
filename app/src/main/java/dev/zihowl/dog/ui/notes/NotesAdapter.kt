@@ -14,7 +14,8 @@ import dev.zihowl.dog.data.model.Note
 
 class NotesAdapter(
     private val onItemClick: (Note, Int) -> Unit,
-    private val onItemLongClick: (Note, Int) -> Unit
+    private val onItemLongClick: (Note, Int) -> Unit,
+    private val onAttachmentClick: (Note) -> Unit = {}
 ) : ListAdapter<Note, NotesAdapter.NoteViewHolder>(DIFF_CALLBACK) {
 
     private var selectedItems: Set<Note> = emptySet()
@@ -31,7 +32,7 @@ class NotesAdapter(
 
     override fun onBindViewHolder(holder: NoteViewHolder, position: Int) {
         val note = getItem(position)
-        holder.bind(note, onItemClick, onItemLongClick)
+        holder.bind(note, onItemClick, onItemLongClick, onAttachmentClick)
 
         val cardView = holder.itemView as CardView
         if (selectedItems.contains(note)) {
@@ -45,12 +46,14 @@ class NotesAdapter(
         val title: TextView = itemView.findViewById(R.id.textViewNoteTitle)
         val content: TextView = itemView.findViewById(R.id.textViewNoteContent)
         val subjectName: TextView = itemView.findViewById(R.id.textViewNoteSubject)
+        val openAttachmentButton: com.google.android.material.button.MaterialButton = itemView.findViewById(R.id.buttonOpenAttachment)
         val defaultCardBackgroundColor = (itemView as CardView).cardBackgroundColor
 
         fun bind(
             note: Note,
             clickListener: (Note, Int) -> Unit,
-            longClickListener: (Note, Int) -> Unit
+            longClickListener: (Note, Int) -> Unit,
+            attachmentClickListener: (Note) -> Unit
         ) {
             title.text = note.title
             content.text = note.content
@@ -59,6 +62,15 @@ class NotesAdapter(
                 subjectName.visibility = View.VISIBLE
             } else {
                 subjectName.visibility = View.GONE
+            }
+
+            if (!note.attachmentPath.isNullOrEmpty()) {
+                openAttachmentButton.visibility = View.VISIBLE
+                openAttachmentButton.text = note.attachmentName ?: "Ver adjunto"
+                openAttachmentButton.setOnClickListener { attachmentClickListener(note) }
+            } else {
+                openAttachmentButton.visibility = View.GONE
+                openAttachmentButton.setOnClickListener(null)
             }
 
             itemView.setOnClickListener {
@@ -87,6 +99,8 @@ class NotesAdapter(
                 return oldItem.title == newItem.title
                         && oldItem.content == newItem.content
                         && oldItem.subjectName == newItem.subjectName
+                        && oldItem.attachmentPath == newItem.attachmentPath
+                        && oldItem.attachmentName == newItem.attachmentName
             }
         }
     }

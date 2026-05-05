@@ -65,6 +65,7 @@ class TasksFragment : Fragment() {
             onHeaderClick = { headerTitle ->
                 when (headerTitle) {
                     HEADER_PENDING -> viewModel.togglePendingExpansion()
+                    HEADER_NOT_COMPLETED -> viewModel.toggleNotCompletedExpansion()
                     HEADER_COMPLETED -> viewModel.toggleCompletedExpansion()
                 }
             }
@@ -76,8 +77,10 @@ class TasksFragment : Fragment() {
     private fun setupObservers() {
         viewModel.pendingTasks.observe(viewLifecycleOwner) { buildDisplayList() }
         viewModel.completedTasks.observe(viewLifecycleOwner) { buildDisplayList() }
+        viewModel.notCompletedTasks.observe(viewLifecycleOwner) { buildDisplayList() }
         viewModel.isPendingExpanded.observe(viewLifecycleOwner) { buildDisplayList() }
         viewModel.isCompletedExpanded.observe(viewLifecycleOwner) { buildDisplayList() }
+        viewModel.isNotCompletedExpanded.observe(viewLifecycleOwner) { buildDisplayList() }
 
         viewModel.isSelectionMode.observe(viewLifecycleOwner) { isSelection ->
             backPressedCallback.isEnabled = isSelection
@@ -102,6 +105,7 @@ class TasksFragment : Fragment() {
     private fun buildDisplayList() {
         val displayList = mutableListOf<Any>()
         val pending = viewModel.pendingTasks.value
+        val notCompleted = viewModel.notCompletedTasks.value
         val completed = viewModel.completedTasks.value
 
         if (!pending.isNullOrEmpty()) {
@@ -117,8 +121,15 @@ class TasksFragment : Fragment() {
                 displayList.addAll(completed)
             }
         }
+
+        if (!notCompleted.isNullOrEmpty()) {
+            displayList.add(HEADER_NOT_COMPLETED)
+            if (viewModel.isNotCompletedExpanded.value == true) {
+                displayList.addAll(notCompleted)
+            }
+        }
         adapter.submitList(displayList)
-        val empty = pending.isNullOrEmpty() && completed.isNullOrEmpty()
+        val empty = pending.isNullOrEmpty() && notCompleted.isNullOrEmpty() && completed.isNullOrEmpty()
         emptyText?.visibility = if (empty) View.VISIBLE else View.GONE
     }
 
@@ -142,6 +153,7 @@ class TasksFragment : Fragment() {
                 menu.findItem(R.id.action_add)?.isVisible = !isSelection
                 menu.findItem(R.id.action_delete)?.isVisible = isSelection
                 menu.findItem(R.id.action_edit)?.isVisible = isSelection && selectedCount == 1
+                menu.findItem(R.id.action_mark_not_completed)?.isVisible = isSelection
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
@@ -153,6 +165,10 @@ class TasksFragment : Fragment() {
                     }
                     R.id.action_edit -> {
                         handleEditAction(null)
+                        true
+                    }
+                    R.id.action_mark_not_completed -> {
+                        viewModel.markSelectedAsNotCompleted(requireContext())
                         true
                     }
                     else -> false
@@ -180,6 +196,7 @@ class TasksFragment : Fragment() {
 
     companion object {
         private const val HEADER_PENDING = "Pendientes"
+        private const val HEADER_NOT_COMPLETED = "No Completadas"
         private const val HEADER_COMPLETED = "Completadas"
     }
 }

@@ -10,7 +10,6 @@ data class Note(
     val id: Int = 0,
     val title: String,
     val content: String? = null,
-    val richContent: String? = null,
     val subjectName: String? = null,
     val owner: String = "",
     val attachmentPath: String? = null,

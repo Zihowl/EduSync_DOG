@@ -19,6 +19,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.google.android.material.textfield.TextInputEditText
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Note
+import dev.zihowl.dog.utils.AttachmentUtils
 
 class AddNoteDialogFragment : DialogFragment() {
 
@@ -38,13 +39,12 @@ class AddNoteDialogFragment : DialogFragment() {
     private lateinit var subjectsViewModel: dev.zihowl.dog.ui.subjects.SubjectsViewModel
     private lateinit var editTextTitle: TextInputEditText
     private lateinit var editTextContent: TextInputEditText
-    private lateinit var editTextRichContent: TextInputEditText
     private lateinit var spinnerSubject: AutoCompleteTextView
     private lateinit var buttonPickAttachment: MaterialButton
     private lateinit var textViewAttachmentInfo: TextView
     private var isEditing = false
     private var originalNote: Note? = null
-    private var selectedAttachmentUri: Uri? = null
+    private var selectedAttachmentPath: String? = null
     private var selectedAttachmentName: String? = null
     private var selectedAttachmentSize: Long? = null
 
@@ -62,7 +62,7 @@ class AddNoteDialogFragment : DialogFragment() {
             originalNote = it.getSerializable(KEY_NOTE) as? Note
             isEditing = originalNote != null
             originalNote?.attachmentPath?.let { path ->
-                selectedAttachmentUri = Uri.parse(path)
+                selectedAttachmentPath = path
                 selectedAttachmentName = originalNote?.attachmentName
                 selectedAttachmentSize = originalNote?.attachmentSize
             }
@@ -75,7 +75,6 @@ class AddNoteDialogFragment : DialogFragment() {
 
         editTextTitle = view.findViewById(R.id.editTextNoteTitle)
         editTextContent = view.findViewById(R.id.editTextNoteContent)
-        editTextRichContent = view.findViewById(R.id.editTextNoteRichContent)
         spinnerSubject = view.findViewById(R.id.spinnerSubject)
         buttonPickAttachment = view.findViewById(R.id.buttonPickAttachment)
         textViewAttachmentInfo = view.findViewById(R.id.textViewAttachmentInfo)
@@ -92,7 +91,6 @@ class AddNoteDialogFragment : DialogFragment() {
         originalNote?.let { note ->
             editTextTitle.setText(note.title)
             editTextContent.setText(note.content)
-            editTextRichContent.setText(note.richContent)
             if (!note.subjectName.isNullOrEmpty()) {
                 spinnerSubject.setText(note.subjectName, false)
             }
@@ -101,6 +99,10 @@ class AddNoteDialogFragment : DialogFragment() {
 
         buttonPickAttachment.setOnClickListener {
             pickAttachmentLauncher.launch(arrayOf("image/*", "application/pdf"))
+        }
+
+        textViewAttachmentInfo.setOnClickListener {
+            AttachmentUtils.openAttachment(requireContext(), selectedAttachmentPath, selectedAttachmentName)
         }
 
         builder.setView(view)
@@ -123,25 +125,16 @@ class AddNoteDialogFragment : DialogFragment() {
         }
 
         val content = editTextContent.text?.toString()?.trim()
-        val richContent = editTextRichContent.text?.toString()?.trim()
         val subjectName = spinnerSubject.text.toString().let {
             if (it == "Ninguna") null else it
-        }
-
-        selectedAttachmentUri?.let { uri ->
-            if (!isValidAttachment(uri)) {
-                Toast.makeText(requireContext(), "Adjunto inválido. Extensiones permitidas: jpg, jpeg, png, pdf. Máx 10 MB.", Toast.LENGTH_LONG).show()
-                return
-            }
         }
 
         if (isEditing && originalNote != null) {
             val updated = originalNote!!.copy(
                 title = title,
                 content = content,
-                richContent = richContent,
                 subjectName = subjectName,
-                attachmentPath = selectedAttachmentUri?.toString(),
+                attachmentPath = selectedAttachmentPath,
                 attachmentName = selectedAttachmentName,
                 attachmentSize = selectedAttachmentSize
             )
@@ -151,9 +144,8 @@ class AddNoteDialogFragment : DialogFragment() {
             val note = Note(
                 title = title,
                 content = content,
-                richContent = richContent,
                 subjectName = subjectName,
-                attachmentPath = selectedAttachmentUri?.toString(),
+                attachmentPath = selectedAttachmentPath,
                 attachmentName = selectedAttachmentName,
                 attachmentSize = selectedAttachmentSize
             )
@@ -171,17 +163,17 @@ class AddNoteDialogFragment : DialogFragment() {
             Toast.makeText(requireContext(), "Archivo no permitido o excede 10 MB", Toast.LENGTH_LONG).show()
             return
         }
-        selectedAttachmentUri = uri
+
+        val copiedFile = AttachmentUtils.copyUriToInternalStorage(requireContext(), uri)
+        if (copiedFile == null) {
+            Toast.makeText(requireContext(), "No se pudo guardar el archivo adjunto", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        selectedAttachmentPath = copiedFile.absolutePath
         selectedAttachmentName = name
         selectedAttachmentSize = size
         updateAttachmentInfo()
-    }
-
-    private fun isValidAttachment(uri: Uri): Boolean {
-        val name = getFileName(uri) ?: return false
-        val ext = name.substringAfterLast('.', "").lowercase()
-        val size = getFileSize(uri)
-        return ext in listOf("jpg", "jpeg", "png", "pdf") && (size == null || size <= 10 * 1024 * 1024)
     }
 
     private fun getFileName(uri: Uri): String? {
@@ -209,7 +201,7 @@ class AddNoteDialogFragment : DialogFragment() {
     private fun updateAttachmentInfo() {
         if (selectedAttachmentName != null) {
             textViewAttachmentInfo.visibility = View.VISIBLE
-            textViewAttachmentInfo.text = "Adjunto: $selectedAttachmentName (${(selectedAttachmentSize ?: 0) / 1024} KB)"
+            textViewAttachmentInfo.text = "Adjunto: $selectedAttachmentName (${(selectedAttachmentSize ?: 0) / 1024} KB) — Toca para abrir"
         } else {
             textViewAttachmentInfo.visibility = View.GONE
         }

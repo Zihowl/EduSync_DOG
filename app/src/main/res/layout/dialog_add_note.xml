@@ -31,20 +31,6 @@
             android:gravity="top"/>
     </com.google.android.material.textfield.TextInputLayout>
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/editTextNoteRichContent"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Contenido enriquecido (HTML)"
-            android:minLines="3"
-            android:gravity="top"/>
-    </com.google.android.material.textfield.TextInputLayout>
-
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonPickAttachment"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -58,6 +44,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:textColor="?attr/colorPrimary"
         android:visibility="gone" />
 
     <com.google.android.material.textfield.TextInputLayout

@@ -153,7 +153,7 @@ class DogRepository(
     suspend fun recalculateSubjectCounters(subjectName: String) {
         withContext(Dispatchers.IO) {
             val subject = subjectDao.getByName(subjectName) ?: return@withContext
-            val pendingCount = taskDao.getBySubjectName(subjectName).count { !it.isCompleted }
+            val pendingCount = taskDao.getBySubjectName(subjectName).count { it.status == Task.STATUS_PENDING }
             val notesCount = noteDao.getBySubjectName(subjectName).size
             subjectDao.update(subject.copy(tasksPending = pendingCount, notesCount = notesCount))
         }
@@ -163,7 +163,7 @@ class DogRepository(
         withContext(Dispatchers.IO) {
             val subjects = subjectDao.getAllList()
             subjects.forEach { subject ->
-                val pendingCount = taskDao.getBySubjectName(subject.name).count { !it.isCompleted }
+                val pendingCount = taskDao.getBySubjectName(subject.name).count { it.status == Task.STATUS_PENDING }
                 val notesCount = noteDao.getBySubjectName(subject.name).size
                 subjectDao.update(subject.copy(tasksPending = pendingCount, notesCount = notesCount))
             }

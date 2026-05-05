@@ -154,7 +154,8 @@ class AddTaskDialogFragment : DialogFragment() {
                 description = description,
                 dueDate = selectedDueDate,
                 subjectName = subjectName,
-                priority = priority
+                priority = priority,
+                status = originalTask!!.status
             )
             viewModel.updateTask(updated, requireContext())
             viewModel.finishSelectionMode()

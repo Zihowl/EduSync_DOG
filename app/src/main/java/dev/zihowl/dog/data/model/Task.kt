@@ -12,7 +12,7 @@ data class Task(
     val title: String,
     val description: String? = null,
     val dueDate: Date? = null,
-    val isCompleted: Boolean = false,
+    val status: String = STATUS_PENDING,
     val subjectName: String? = null,
     val owner: String = "",
     val priority: String = "MEDIUM"
@@ -21,5 +21,8 @@ data class Task(
         const val PRIORITY_HIGH = "HIGH"
         const val PRIORITY_MEDIUM = "MEDIUM"
         const val PRIORITY_LOW = "LOW"
+        const val STATUS_PENDING = "PENDING"
+        const val STATUS_COMPLETED = "COMPLETED"
+        const val STATUS_NOT_COMPLETED = "NOT_COMPLETED"
     }
 }

@@ -17,6 +17,7 @@ class TasksViewModel(private val repository: DogRepository) : ViewModel() {
 
     val pendingTasks: LiveData<List<Task>> = MutableLiveData()
     val completedTasks: LiveData<List<Task>> = MutableLiveData()
+    val notCompletedTasks: LiveData<List<Task>> = MutableLiveData()
 
     private val _isSelectionMode = MutableLiveData(false)
     val isSelectionMode: LiveData<Boolean> = _isSelectionMode
@@ -30,6 +31,9 @@ class TasksViewModel(private val repository: DogRepository) : ViewModel() {
     private val _isCompletedExpanded = MutableLiveData(true)
     val isCompletedExpanded: LiveData<Boolean> = _isCompletedExpanded
 
+    private val _isNotCompletedExpanded = MutableLiveData(true)
+    val isNotCompletedExpanded: LiveData<Boolean> = _isNotCompletedExpanded
+
     init {
         allTasks.observeForever { tasks ->
             val sorted = tasks?.sortedWith(compareBy(
@@ -41,8 +45,9 @@ class TasksViewModel(private val repository: DogRepository) : ViewModel() {
                 }},
                 { it.dueDate ?: Date(Long.MAX_VALUE) }
             )) ?: emptyList()
-            (pendingTasks as MutableLiveData).value = sorted.filter { !it.isCompleted }
-            (completedTasks as MutableLiveData).value = sorted.filter { it.isCompleted }
+            (pendingTasks as MutableLiveData).value = sorted.filter { it.status == Task.STATUS_PENDING }
+            (notCompletedTasks as MutableLiveData).value = sorted.filter { it.status == Task.STATUS_NOT_COMPLETED }
+            (completedTasks as MutableLiveData).value = sorted.filter { it.status == Task.STATUS_COMPLETED }
         }
     }
 
@@ -62,7 +67,12 @@ class TasksViewModel(private val repository: DogRepository) : ViewModel() {
 
     fun toggleTaskCompletion(task: Task) {
         viewModelScope.launch {
-            repository.updateTask(task.copy(isCompleted = !task.isCompleted))
+            val newStatus = when (task.status) {
+                Task.STATUS_PENDING -> Task.STATUS_COMPLETED
+                Task.STATUS_COMPLETED -> Task.STATUS_PENDING
+                else -> Task.STATUS_PENDING
+            }
+            repository.updateTask(task.copy(status = newStatus))
         }
     }
 
@@ -107,6 +117,26 @@ class TasksViewModel(private val repository: DogRepository) : ViewModel() {
 
     fun toggleCompletedExpansion() {
         _isCompletedExpanded.value = _isCompletedExpanded.value != true
+    }
+
+    fun toggleNotCompletedExpansion() {
+        _isNotCompletedExpanded.value = _isNotCompletedExpanded.value != true
+    }
+
+    fun markSelectedAsNotCompleted(context: Context) {
+        val selected = _selectedTasks.value ?: return
+        viewModelScope.launch {
+            selected.forEach { task ->
+                repository.updateTask(task.copy(status = Task.STATUS_NOT_COMPLETED))
+            }
+            finishSelectionMode()
+            val count = selected.size
+            Toast.makeText(
+                context,
+                "$count ${if (count > 1) "tareas marcadas como no completadas" else "tarea marcada como no completada"}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     override fun onCleared() {

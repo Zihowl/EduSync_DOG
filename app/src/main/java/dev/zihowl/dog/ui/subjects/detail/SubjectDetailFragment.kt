@@ -19,6 +19,7 @@ import dev.zihowl.dog.ui.notes.NotesViewModel
 import dev.zihowl.dog.ui.subjects.SubjectsViewModel
 import dev.zihowl.dog.ui.tasks.TasksAdapter
 import dev.zihowl.dog.ui.tasks.TasksViewModel
+import dev.zihowl.dog.utils.AttachmentUtils
 
 class SubjectDetailFragment : Fragment() {
 
@@ -83,7 +84,10 @@ class SubjectDetailFragment : Fragment() {
         )
         notesAdapter = NotesAdapter(
             onItemClick = { _, _ -> },
-            onItemLongClick = { _, _ -> }
+            onItemLongClick = { _, _ -> },
+            onAttachmentClick = { note ->
+                AttachmentUtils.openAttachment(requireContext(), note.attachmentPath, note.attachmentName)
+            }
         )
     }
 

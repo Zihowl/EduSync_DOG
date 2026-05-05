@@ -11,7 +11,7 @@ import dev.zihowl.dog.data.model.Subject
 import dev.zihowl.dog.data.model.Task
 import net.sqlcipher.database.SupportFactory
 
-@Database(entities = [Subject::class, Task::class, Note::class, ManualEvent::class], version = 4, exportSchema = false)
+@Database(entities = [Subject::class, Task::class, Note::class, ManualEvent::class], version = 6, exportSchema = false)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun subjectDao(): SubjectDao

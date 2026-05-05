@@ -107,13 +107,20 @@ class TasksAdapter(
                 subjectName.visibility = View.GONE
             }
 
-            completedCheckBox.isChecked = task.isCompleted
-            title.paintFlags = if (task.isCompleted) {
+            completedCheckBox.isChecked = task.status == Task.STATUS_COMPLETED || task.status == Task.STATUS_NOT_COMPLETED
+            title.paintFlags = if (task.status != Task.STATUS_PENDING) {
                 title.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
             } else {
                 title.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
             }
-            itemView.alpha = if (task.isCompleted) 0.6f else 1.0f
+            itemView.alpha = if (task.status != Task.STATUS_PENDING) 0.6f else 1.0f
+
+            val cardView = itemView as androidx.cardview.widget.CardView
+            if (task.status == Task.STATUS_NOT_COMPLETED) {
+                cardView.setCardBackgroundColor(ContextCompat.getColor(itemView.context, R.color.task_not_completed_background))
+            } else {
+                cardView.setCardBackgroundColor(defaultCardBackgroundColor)
+            }
 
             itemView.setOnClickListener { clickListener(task) }
             itemView.setOnLongClickListener { longClickListener(task); true }

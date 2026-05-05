@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.RecyclerView
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Note
 import dev.zihowl.dog.ui.main.MainActivity
+import dev.zihowl.dog.utils.AttachmentUtils
 
 class NotesFragment : Fragment() {
 
@@ -71,6 +72,9 @@ class NotesFragment : Fragment() {
             },
             onItemLongClick = { note, _ ->
                 viewModel.toggleSelection(note)
+            },
+            onAttachmentClick = { note ->
+                AttachmentUtils.openAttachment(requireContext(), note.attachmentPath, note.attachmentName)
             }
         )
     }

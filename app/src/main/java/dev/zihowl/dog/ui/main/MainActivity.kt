@@ -31,6 +31,7 @@ import dev.zihowl.dog.ui.subjects.AddSubjectDialogFragment
 import dev.zihowl.dog.ui.subjects.SubjectsViewModel
 import dev.zihowl.dog.ui.subjects.detail.SubjectDetailFragment
 import dev.zihowl.dog.ui.schedule.ScheduleViewModel
+import dev.zihowl.dog.ui.performance.PerformanceFragment
 import dev.zihowl.dog.ui.tasks.AddTaskDialogFragment
 import dev.zihowl.dog.ui.tasks.TasksViewModel
 
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity(),
     private lateinit var toggle: ActionBarDrawerToggle
     private lateinit var tabLayout: TabLayout
     private lateinit var contentMainView: View
+    private lateinit var fragmentContainer: View
 
     private lateinit var subjectsViewModel: SubjectsViewModel
     private lateinit var tasksViewModel: TasksViewModel
@@ -61,6 +63,7 @@ class MainActivity : AppCompatActivity(),
         viewPager = findViewById(R.id.viewPager)
         tabLayout = findViewById(R.id.tabLayout)
         contentMainView = findViewById(R.id.contentMainLayout)
+        fragmentContainer = findViewById(R.id.fragment_container)
 
         setupViewModels()
         setupToolbarAndDrawer()
@@ -166,6 +169,8 @@ class MainActivity : AppCompatActivity(),
     override fun onBackPressed() {
         if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START)
+        } else if (fragmentContainer.visibility == View.VISIBLE) {
+            hidePerformanceFragment()
         } else if (supportFragmentManager.backStackEntryCount > 0) {
             supportFragmentManager.popBackStack()
         } else {
@@ -222,6 +227,11 @@ class MainActivity : AppCompatActivity(),
         return true
     }
 
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        menu?.findItem(R.id.action_add)?.isVisible = fragmentContainer.visibility != View.VISIBLE
+        return super.onPrepareOptionsMenu(menu)
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_add -> {
@@ -239,7 +249,43 @@ class MainActivity : AppCompatActivity(),
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         drawerLayout.closeDrawer(GravityCompat.START)
+        when (item.itemId) {
+            R.id.nav_performance -> {
+                showPerformanceFragment()
+                return true
+            }
+        }
         return true
+    }
+
+    private fun showPerformanceFragment() {
+        contentMainView.visibility = View.GONE
+        tabLayout.visibility = View.GONE
+        fragmentContainer.visibility = View.VISIBLE
+        invalidateOptionsMenu()
+        supportActionBar?.title = "Rendimiento Académico"
+
+        val existing = supportFragmentManager.findFragmentById(R.id.fragment_container) as? PerformanceFragment
+        if (existing == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, PerformanceFragment())
+                .commit()
+        }
+    }
+
+    private fun hidePerformanceFragment() {
+        contentMainView.visibility = View.VISIBLE
+        tabLayout.visibility = View.VISIBLE
+        fragmentContainer.visibility = View.GONE
+        invalidateOptionsMenu()
+        updateTitleBasedOnPage(viewPager.currentItem)
+
+        val existing = supportFragmentManager.findFragmentById(R.id.fragment_container)
+        existing?.let {
+            supportFragmentManager.beginTransaction()
+                .remove(it)
+                .commit()
+        }
     }
 
     private fun setupAuthButtons() {
