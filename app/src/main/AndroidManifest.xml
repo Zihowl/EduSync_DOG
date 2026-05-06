@@ -42,9 +42,12 @@
 
         <receiver
             android:name=".widget.ScheduleWidgetProvider"
-            android:exported="false">
+            android:exported="true"
+            android:label="@string/widget_schedule_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -53,9 +56,12 @@
 
         <receiver
             android:name=".widget.TasksWidgetProvider"
-            android:exported="false">
+            android:exported="true"
+            android:label="@string/widget_tasks_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
@@ -64,9 +70,12 @@
 
         <receiver
             android:name=".widget.NotesWidgetProvider"
-            android:exported="false">
+            android:exported="true"
+            android:label="@string/widget_notes_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

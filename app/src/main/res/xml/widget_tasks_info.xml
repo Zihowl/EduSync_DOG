@@ -3,7 +3,8 @@
     android:minWidth="180dp"
     android:minHeight="110dp"
     android:updatePeriodMillis="1800000"
+    android:label="@string/widget_tasks_name"
     android:previewImage="@mipmap/ic_launcher"
     android:initialLayout="@layout/widget_tasks"
-    android:resizeMode="vertical"
+    android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

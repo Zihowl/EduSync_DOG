@@ -63,4 +63,7 @@
     <string name="no_subjects">No hay materias registradas</string>
     <string name="no_tasks">No hay tareas registradas</string>
     <string name="no_notes">No hay notas registradas</string>
+    <string name="widget_schedule_name">Horario DOG</string>
+    <string name="widget_tasks_name">Tareas DOG</string>
+    <string name="widget_notes_name">Notas DOG</string>
 </resources>

@@ -16,33 +16,49 @@ import kotlinx.coroutines.launch
 class NotesWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-        val sessionManager = SessionManager(context)
-        val db = AppDatabase.getInstance(context, sessionManager.getDbPassphrase())
-
+        val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
-            val notes = db.noteDao().getAllList()
-                .takeLast(5)
-                .reversed()
+            try {
+                val sessionManager = SessionManager(context)
 
-            val displayText = if (notes.isEmpty()) {
-                "Sin notas registradas"
-            } else {
-                notes.joinToString("\n") { "• ${it.title}" }
-            }
+                val displayText = if (!sessionManager.isLoggedIn) {
+                    "Inicia sesión para ver tus notas"
+                } else {
+                    val db = AppDatabase.getInstance(context, sessionManager.getDbPassphrase())
+                    val notes = db.noteDao().getAllForOwner(sessionManager.username)
+                        .takeLast(5)
+                        .reversed()
 
-            for (appWidgetId in appWidgetIds) {
-                val views = RemoteViews(context.packageName, R.layout.widget_notes)
-                views.setTextViewText(R.id.widget_notes_title, "Últimas notas")
-                views.setTextViewText(R.id.widget_notes_content, displayText)
+                    if (notes.isEmpty()) {
+                        "Sin notas registradas"
+                    } else {
+                        notes.joinToString("\n") { "• ${it.title}" }
+                    }
+                }
 
-                val intent = Intent(context, dev.zihowl.dog.ui.main.MainActivity::class.java)
-                val pendingIntent = PendingIntent.getActivity(
-                    context, 0, intent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                views.setOnClickPendingIntent(R.id.widget_notes_container, pendingIntent)
+                for (appWidgetId in appWidgetIds) {
+                    val views = RemoteViews(context.packageName, R.layout.widget_notes)
+                    views.setTextViewText(R.id.widget_notes_title, "Últimas notas")
+                    views.setTextViewText(R.id.widget_notes_content, displayText)
 
-                appWidgetManager.updateAppWidget(appWidgetId, views)
+                    val intent = Intent(context, dev.zihowl.dog.ui.main.MainActivity::class.java)
+                    val pendingIntent = PendingIntent.getActivity(
+                        context, 0, intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    )
+                    views.setOnClickPendingIntent(R.id.widget_notes_container, pendingIntent)
+
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                }
+            } catch (e: Exception) {
+                for (appWidgetId in appWidgetIds) {
+                    val views = RemoteViews(context.packageName, R.layout.widget_notes)
+                    views.setTextViewText(R.id.widget_notes_title, "Últimas notas")
+                    views.setTextViewText(R.id.widget_notes_content, "Error al cargar notas")
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
