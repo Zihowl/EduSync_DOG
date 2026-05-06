@@ -23,7 +23,7 @@
         android:fitsSystemWindows="true"
         android:background="?attr/colorSurface"
         app:elevation="0dp"
-        app:headerLayout="@layout/nav_header_with_sync"
+        app:headerLayout="@layout/nav_header_main"
         app:menu="@menu/activity_main_drawer"
         app:itemTextColor="@color/nav_item_text"
         app:itemIconTint="@color/nav_item_icon"

@@ -10,7 +10,6 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -67,13 +66,34 @@ class MainActivity : AppCompatActivity(),
         contentMainView = findViewById(R.id.contentMainLayout)
         fragmentContainer = findViewById(R.id.fragment_container)
 
+        val initialTab = intent?.getIntExtra(EXTRA_OPEN_TAB, -1)?.takeIf { it in 0..3 } ?: 0
+        intent?.removeExtra(EXTRA_OPEN_TAB)
+
         setupViewModels()
         setupToolbarAndDrawer()
         setupSyncStatus()
         setupAuthButtons()
-        setupViewPagerAndTabs()
+        setupViewPagerAndTabs(initialTab)
 
         supportFragmentManager.addOnBackStackChangedListener(this)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val tab = intent.getIntExtra(EXTRA_OPEN_TAB, -1)
+        if (tab in 0..3) {
+            viewPager.setCurrentItem(tab, false)
+            updateTitleBasedOnPage(tab)
+            intent.removeExtra(EXTRA_OPEN_TAB)
+        }
+    }
+
+    companion object {
+        const val EXTRA_OPEN_TAB = "dev.zihowl.dog.extra.OPEN_TAB"
+        const val TAB_TASKS = 1
+        const val TAB_NOTES = 2
+        const val TAB_SCHEDULE = 3
     }
 
     private fun setupSyncStatus() {
@@ -110,7 +130,7 @@ class MainActivity : AppCompatActivity(),
         navigationView.setNavigationItemSelectedListener(this)
     }
 
-    private fun setupViewPagerAndTabs() {
+    private fun setupViewPagerAndTabs(initialTab: Int = 0) {
         val adapter = ViewPagerAdapter(this)
         viewPager.adapter = adapter
         viewPager.offscreenPageLimit = 1
@@ -154,7 +174,8 @@ class MainActivity : AppCompatActivity(),
                 invalidateOptionsMenu()
             }
         })
-        viewPager.currentItem = 0
+        viewPager.setCurrentItem(initialTab, false)
+        updateTitleBasedOnPage(initialTab)
     }
 
     fun showSubjectDetail(subjectName: String) {
@@ -312,17 +333,14 @@ class MainActivity : AppCompatActivity(),
 
         val loginButton = navigationView.findViewById<View?>(R.id.nav_login_button)
         val logoutButton = navigationView.findViewById<View?>(R.id.nav_logout_button)
-        val syncButton = navigationView.findViewById<View?>(R.id.nav_sync_button)
 
         if (sessionManager.isGuestMode) {
             headerSyncStatus.text = getString(R.string.sync_offline)
             headerSyncStatus.visibility = View.VISIBLE
-            syncButton?.visibility = View.GONE
             loginButton?.let { (it.parent as? View)?.visibility = View.VISIBLE }
             logoutButton?.let { (it.parent as? View)?.visibility = View.GONE }
         } else {
             headerSyncStatus.text = syncStatusManager.syncStatus.value ?: getString(R.string.sync_connected)
-            syncButton?.visibility = View.VISIBLE
             updateAuthButtonVisibility()
         }
 
@@ -332,12 +350,6 @@ class MainActivity : AppCompatActivity(),
 
         logoutButton?.setOnClickListener {
             navigateToServerConnection()
-        }
-
-        syncButton?.setOnClickListener {
-            if (!sessionManager.isGuestMode) {
-                Toast.makeText(this, "Sincronizando cambios...", Toast.LENGTH_SHORT).show()
-            }
         }
     }
 

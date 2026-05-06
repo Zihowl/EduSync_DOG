@@ -187,6 +187,7 @@ class TasksFragment : Fragment() {
     }
 
     private fun updateActionBarTitle(title: String) {
+        if (isNotCurrentFragment()) return
         (activity as? androidx.appcompat.app.AppCompatActivity)?.supportActionBar?.title = title
     }
 

@@ -2,26 +2,31 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_notes_container"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?attr/colorSurface"
-    android:padding="12dp">
+    android:background="@color/surface"
+    android:padding="8dp">
 
     <TextView
         android:id="@+id/widget_notes_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Últimas notas"
-        android:textAppearance="?attr/textAppearanceTitleSmall"
-        android:textColor="?attr/colorOnSurface"
-        android:layout_marginBottom="8dp" />
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="@color/on_surface"
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:layout_marginBottom="4dp" />
 
     <TextView
         android:id="@+id/widget_notes_content"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:text="Sin notas registradas"
-        android:textAppearance="?attr/textAppearanceBodySmall"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:lineSpacingMultiplier="1.2" />
+        android:textSize="12sp"
+        android:textColor="@color/on_surface_variant"
+        android:lineSpacingMultiplier="1.2"
+        android:ellipsize="end" />
 </LinearLayout>

@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.widget.RemoteViews
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.local.AppDatabase
@@ -22,7 +23,7 @@ class TasksWidgetProvider : AppWidgetProvider() {
             try {
                 val sessionManager = SessionManager(context)
 
-                val displayText = if (!sessionManager.isLoggedIn) {
+                val displayText = if (!sessionManager.isLoggedIn && !sessionManager.isGuestMode) {
                     "Inicia sesión para ver tus tareas"
                 } else {
                     val db = AppDatabase.getInstance(context, sessionManager.getDbPassphrase())
@@ -51,9 +52,12 @@ class TasksWidgetProvider : AppWidgetProvider() {
                     views.setTextViewText(R.id.widget_tasks_title, "Tareas pendientes")
                     views.setTextViewText(R.id.widget_tasks_content, displayText)
 
-                    val intent = Intent(context, dev.zihowl.dog.ui.main.MainActivity::class.java)
+                    val intent = Intent(context, dev.zihowl.dog.ui.main.MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra(dev.zihowl.dog.ui.main.MainActivity.EXTRA_OPEN_TAB, dev.zihowl.dog.ui.main.MainActivity.TAB_TASKS)
+                    }
                     val pendingIntent = PendingIntent.getActivity(
-                        context, 0, intent,
+                        context, dev.zihowl.dog.ui.main.MainActivity.TAB_TASKS, intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
                     views.setOnClickPendingIntent(R.id.widget_tasks_container, pendingIntent)
@@ -61,11 +65,16 @@ class TasksWidgetProvider : AppWidgetProvider() {
                     appWidgetManager.updateAppWidget(appWidgetId, views)
                 }
             } catch (e: Exception) {
-                for (appWidgetId in appWidgetIds) {
-                    val views = RemoteViews(context.packageName, R.layout.widget_tasks)
-                    views.setTextViewText(R.id.widget_tasks_title, "Tareas pendientes")
-                    views.setTextViewText(R.id.widget_tasks_content, "Error al cargar tareas")
-                    appWidgetManager.updateAppWidget(appWidgetId, views)
+                Log.e("TasksWidget", "Error updating widget", e)
+                try {
+                    for (appWidgetId in appWidgetIds) {
+                        val views = RemoteViews(context.packageName, R.layout.widget_tasks)
+                        views.setTextViewText(R.id.widget_tasks_title, "Tareas pendientes")
+                        views.setTextViewText(R.id.widget_tasks_content, "Error al cargar tareas")
+                        appWidgetManager.updateAppWidget(appWidgetId, views)
+                    }
+                } catch (e2: Exception) {
+                    Log.e("TasksWidget", "Error updating widget with error message", e2)
                 }
             } finally {
                 pendingResult.finish()

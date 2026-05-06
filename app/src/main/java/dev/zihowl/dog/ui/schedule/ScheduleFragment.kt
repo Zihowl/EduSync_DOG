@@ -545,6 +545,7 @@ class ScheduleFragment : Fragment() {
     }
 
     private fun updateActionBarTitle(title: String) {
+        if (isNotCurrentFragment()) return
         (activity as? AppCompatActivity)?.supportActionBar?.title = title
     }
 
