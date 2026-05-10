@@ -108,7 +108,10 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setupViewModels() {
-        val factory = ViewModelFactory((application as dev.zihowl.dog.DogApplication).repository)
+        val repo = kotlinx.coroutines.runBlocking {
+            (application as dev.zihowl.dog.DogApplication).repository()
+        }
+        val factory = ViewModelFactory(repo)
         subjectsViewModel = ViewModelProvider(this, factory)[SubjectsViewModel::class.java]
         tasksViewModel = ViewModelProvider(this, factory)[TasksViewModel::class.java]
         notesViewModel = ViewModelProvider(this, factory)[NotesViewModel::class.java]
@@ -217,6 +220,7 @@ class MainActivity : AppCompatActivity(),
         val isDetailVisible = supportFragmentManager.backStackEntryCount > 0
         contentMainView.visibility = if (isDetailVisible) View.GONE else View.VISIBLE
         setUiNavigationLock(isDetailVisible)
+        invalidateOptionsMenu()
         if (!isDetailVisible) {
             updateTitleBasedOnPage(viewPager.currentItem)
         }
@@ -263,7 +267,9 @@ class MainActivity : AppCompatActivity(),
     }
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
-        menu?.findItem(R.id.action_add)?.isVisible = fragmentContainer.visibility != View.VISIBLE
+        menu?.findItem(R.id.action_add)?.isVisible =
+            fragmentContainer.visibility != View.VISIBLE &&
+                supportFragmentManager.backStackEntryCount == 0
         return super.onPrepareOptionsMenu(menu)
     }
 

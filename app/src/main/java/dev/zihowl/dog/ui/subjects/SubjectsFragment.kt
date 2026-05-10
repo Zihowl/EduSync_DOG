@@ -113,9 +113,10 @@ class SubjectsFragment : Fragment() {
 
             override fun onPrepareMenu(menu: Menu) {
                 if (isNotCurrentFragment()) return
+                val isDetailVisible = requireActivity().supportFragmentManager.backStackEntryCount > 0
                 val isSelection = viewModel.isSelectionMode.value == true
                 val selectedCount = viewModel.selectedSubjects.value?.size ?: 0
-                menu.findItem(R.id.action_add)?.isVisible = !isSelection
+                menu.findItem(R.id.action_add)?.isVisible = !isSelection && !isDetailVisible
                 menu.findItem(R.id.action_delete)?.isVisible = isSelection
                 menu.findItem(R.id.action_edit)?.isVisible = isSelection && selectedCount == 1
             }
@@ -166,7 +167,7 @@ class SubjectsFragment : Fragment() {
                             viewModel.disassociateAndDelete(subject, requireContext())
                         }
                         .setPositiveButton("Eliminar Todo") { _, _ ->
-                            viewModel.deleteSelectedSubjects(requireContext())
+                            viewModel.deleteSubjectAndContent(subject, requireContext())
                         }
                         .show()
                 }

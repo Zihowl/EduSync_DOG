@@ -510,7 +510,7 @@ class ScheduleFragment : Fragment() {
                 if (!isResumed || isNotCurrentFragment()) return
                 val isSelection = isSelectionMode
                 val selectedCount = selectedManualEvents.size
-                menu.findItem(R.id.action_add)?.isVisible = !isSelection && !isListView
+                menu.findItem(R.id.action_add)?.isVisible = !isSelection
                 menu.findItem(R.id.action_delete)?.isVisible = isSelection
                 menu.findItem(R.id.action_edit)?.isVisible = isSelection && selectedCount == 1
                 val toggleItem = menu.findItem(R.id.action_toggle_view)

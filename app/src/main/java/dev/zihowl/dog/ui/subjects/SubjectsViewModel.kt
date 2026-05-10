@@ -75,6 +75,14 @@ class SubjectsViewModel(private val repository: DogRepository) : ViewModel() {
         }
     }
 
+    fun deleteSubjectAndContent(subject: Subject, context: Context) {
+        viewModelScope.launch {
+            repository.deleteSubjectWithContent(subject.id)
+            finishSelectionMode()
+            Toast.makeText(context, "Materia '${subject.name}' y su contenido eliminados", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun subjectHasContent(subject: Subject): Boolean {
         return (subject.tasksPending > 0) || (subject.notesCount > 0)
     }

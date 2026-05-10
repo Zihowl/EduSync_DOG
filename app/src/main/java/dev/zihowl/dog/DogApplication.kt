@@ -6,28 +6,37 @@ import dev.zihowl.dog.data.repository.DogRepository
 import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.notifications.ClassNotificationScheduler
 import dev.zihowl.dog.notifications.NotificationHelper
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class DogApplication : Application() {
 
-    lateinit var repository: DogRepository
-        private set
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val repositoryDeferred = CompletableDeferred<DogRepository>()
+
+    suspend fun repository(): DogRepository = repositoryDeferred.await()
 
     override fun onCreate() {
         super.onCreate()
+        applicationScope.launch(Dispatchers.IO) {
+            val sessionManager = SessionManager(this@DogApplication)
+            sessionManager.role = "alumno"
 
-        val sessionManager = SessionManager(this)
-        sessionManager.role = "alumno"
+            val db = AppDatabase.getInstance(this@DogApplication, sessionManager.getDbPassphrase())
+            val repo = DogRepository(
+                db.subjectDao(),
+                db.taskDao(),
+                db.noteDao(),
+                db.manualEventDao(),
+                db.syncQueueDao()
+            )
+            repositoryDeferred.complete(repo)
 
-        val db = AppDatabase.getInstance(this, sessionManager.getDbPassphrase())
-        repository = DogRepository(
-            db.subjectDao(),
-            db.taskDao(),
-            db.noteDao(),
-            db.manualEventDao(),
-            db.syncQueueDao()
-        )
-
-        NotificationHelper.createNotificationChannel(this)
-        ClassNotificationScheduler.scheduleNextClass(this)
+            NotificationHelper.createNotificationChannel(this@DogApplication)
+            ClassNotificationScheduler.scheduleNextClass(this@DogApplication)
+        }
     }
 }

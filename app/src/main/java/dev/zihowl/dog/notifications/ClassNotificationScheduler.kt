@@ -31,7 +31,7 @@ object ClassNotificationScheduler {
     fun scheduleNextClass(context: Context) {
         val app = context.applicationContext as DogApplication
         CoroutineScope(Dispatchers.IO).launch {
-            val subjects = app.repository.getAllSubjectsList()
+            val subjects = app.repository().getAllSubjectsList()
             if (subjects.isEmpty()) return@launch
 
             val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())

@@ -88,6 +88,17 @@ class DogRepository(
         }
     }
 
+    suspend fun deleteSubjectWithContent(subjectId: Int) {
+        withContext(Dispatchers.IO) {
+            val subject = subjectDao.getById(subjectId) ?: return@withContext
+            val tasks = taskDao.getBySubjectName(subject.name)
+            if (tasks.isNotEmpty()) taskDao.deleteAll(tasks)
+            val notes = noteDao.getBySubjectName(subject.name)
+            if (notes.isNotEmpty()) noteDao.deleteAll(notes)
+            subjectDao.delete(subject)
+        }
+    }
+
     suspend fun getTasksForSubject(subjectName: String): List<Task> {
         return withContext(Dispatchers.IO) {
             taskDao.getBySubjectName(subjectName)

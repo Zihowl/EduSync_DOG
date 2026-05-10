@@ -2,6 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
+        android:id="@+id/action_toggle_view"
+        android:title="Ver lista"
+        android:icon="@drawable/ic_view_list"
+        android:visible="false"
+        app:showAsAction="ifRoom" />
+    <item
         android:id="@+id/action_add"
         android:title="Agregar"
         android:icon="@android:drawable/ic_menu_add"
@@ -22,12 +28,6 @@
         android:id="@+id/action_mark_not_completed"
         android:title="No completada"
         android:icon="@android:drawable/ic_menu_close_clear_cancel"
-        android:visible="false"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/action_toggle_view"
-        android:title="Ver lista"
-        android:icon="@drawable/ic_view_list"
         android:visible="false"
         app:showAsAction="ifRoom" />
 </menu>
