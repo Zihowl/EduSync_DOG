@@ -1,5 +1,7 @@
 package dev.zihowl.dog.utils
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -43,21 +45,26 @@ object AttachmentUtils {
             Toast.makeText(context, "El archivo adjunto ya no existe", Toast.LENGTH_SHORT).show()
             return
         }
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
-        val mimeType = getMimeTypeFromExtension(file.name)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mimeType)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        val chooser = Intent.createChooser(intent, attachmentName ?: "Abrir adjunto")
-        if (intent.resolveActivity(context.packageManager) != null) {
+        try {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            )
+            val mimeType = getMimeTypeFromExtension(file.name)
+            val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mimeType)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(viewIntent, attachmentName ?: "Abrir adjunto").apply {
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                if (context !is Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
             context.startActivity(chooser)
-        } else {
-            Toast.makeText(context, "No hay aplicaciones disponibles para abrir este archivo", Toast.LENGTH_SHORT).show()
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(context, "No hay aplicaciones para abrir este archivo", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "Error al abrir el archivo: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 
