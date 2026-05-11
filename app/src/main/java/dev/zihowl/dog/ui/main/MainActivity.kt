@@ -192,6 +192,8 @@ class MainActivity : AppCompatActivity(),
 
     fun isCurrentTab(tabIndex: Int): Boolean = viewPager.currentItem == tabIndex
 
+    fun isPerformanceVisible(): Boolean = fragmentContainer.visibility == View.VISIBLE
+
     private fun updateTitleBasedOnPage(position: Int) {
         val newTitle = when (position) {
             0 -> "Materias"
@@ -267,9 +269,15 @@ class MainActivity : AppCompatActivity(),
     }
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+        val performanceVisible = fragmentContainer.visibility == View.VISIBLE
         menu?.findItem(R.id.action_add)?.isVisible =
-            fragmentContainer.visibility != View.VISIBLE &&
-                supportFragmentManager.backStackEntryCount == 0
+            !performanceVisible && supportFragmentManager.backStackEntryCount == 0
+        if (performanceVisible) {
+            menu?.findItem(R.id.action_edit)?.isVisible = false
+            menu?.findItem(R.id.action_delete)?.isVisible = false
+            menu?.findItem(R.id.action_toggle_view)?.isVisible = false
+            menu?.findItem(R.id.action_mark_not_completed)?.isVisible = false
+        }
         return super.onPrepareOptionsMenu(menu)
     }
 

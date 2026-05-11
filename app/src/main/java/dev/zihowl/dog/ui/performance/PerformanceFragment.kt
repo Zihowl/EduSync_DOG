@@ -1,10 +1,14 @@
 package dev.zihowl.dog.ui.performance
 
+import android.app.DatePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,14 +31,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +51,10 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import dev.zihowl.dog.data.model.Task
 import dev.zihowl.dog.ui.tasks.TasksViewModel
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class PerformanceFragment : Fragment() {
 
@@ -71,34 +83,74 @@ class PerformanceFragment : Fragment() {
     }
 }
 
+private fun startOfDay(time: Long): Long {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = time
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    return cal.timeInMillis
+}
+
+private fun endOfDay(time: Long): Long {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = time
+        set(Calendar.HOUR_OF_DAY, 23)
+        set(Calendar.MINUTE, 59)
+        set(Calendar.SECOND, 59)
+        set(Calendar.MILLISECOND, 999)
+    }
+    return cal.timeInMillis
+}
+
 @Composable
 fun PerformanceScreen(tasks: List<Task>) {
-    val total = tasks.size
-    val pending = tasks.count { it.status == Task.STATUS_PENDING }
-    val completed = tasks.count { it.status == Task.STATUS_COMPLETED }
-    val notCompleted = tasks.count { it.status == Task.STATUS_NOT_COMPLETED }
+    val context = LocalContext.current
+    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+
+    val defaultEnd = remember { System.currentTimeMillis() }
+    val defaultStart = remember {
+        Calendar.getInstance().apply {
+            timeInMillis = defaultEnd
+            add(Calendar.DAY_OF_YEAR, -29)
+        }.timeInMillis
+    }
+
+    var startDate by remember { mutableStateOf(startOfDay(defaultStart)) }
+    var endDate by remember { mutableStateOf(endOfDay(defaultEnd)) }
+
+    fun showDatePicker(initial: Long, onPicked: (Long) -> Unit) {
+        val cal = Calendar.getInstance().apply { timeInMillis = initial }
+        DatePickerDialog(
+            context,
+            { _, year, month, day ->
+                val picked = Calendar.getInstance().apply {
+                    set(year, month, day, 0, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                onPicked(picked.timeInMillis)
+            },
+            cal.get(Calendar.YEAR),
+            cal.get(Calendar.MONTH),
+            cal.get(Calendar.DAY_OF_MONTH)
+        ).show()
+    }
+
+    val filtered = tasks.filter { task ->
+        val due = task.dueDate?.time ?: return@filter false
+        due in startDate..endDate
+    }
+
+    val total = filtered.size
+    val pending = filtered.count { it.status == Task.STATUS_PENDING }
+    val completed = filtered.count { it.status == Task.STATUS_COMPLETED }
+    val notCompleted = filtered.count { it.status == Task.STATUS_NOT_COMPLETED }
 
     val completedPct = if (total > 0) completed.toFloat() / total else 0f
     val notCompletedPct = if (total > 0) notCompleted.toFloat() / total else 0f
     val pendingPct = if (total > 0) pending.toFloat() / total else 0f
-
-    if (total == 0) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "No hay tareas registradas para calcular el rendimiento.",
-                modifier = Modifier.padding(horizontal = 24.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-        }
-        return
-    }
 
     Column(
         modifier = Modifier
@@ -107,6 +159,85 @@ fun PerformanceScreen(tasks: List<Task>) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Date range selector (RQF-APP-52)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Rango de fechas",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DateField(
+                        label = "Inicio",
+                        value = dateFormat.format(Date(startDate)),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        showDatePicker(startDate) { picked ->
+                            val newStart = startOfDay(picked)
+                            // RQNF-APP-49: la fecha de inicio no debe ser posterior a la fecha de fin
+                            if (newStart > endDate) {
+                                Toast.makeText(
+                                    context,
+                                    "La fecha de inicio no puede ser posterior a la fecha de fin.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                startDate = newStart
+                            }
+                        }
+                    }
+                    DateField(
+                        label = "Fin",
+                        value = dateFormat.format(Date(endDate)),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        showDatePicker(endDate) { picked ->
+                            val newEnd = endOfDay(picked)
+                            if (newEnd < startDate) {
+                                Toast.makeText(
+                                    context,
+                                    "La fecha de fin no puede ser anterior a la fecha de inicio.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            } else {
+                                endDate = newEnd
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (total == 0) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No hay tareas en el rango de fechas seleccionado.",
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            }
+            return@Column
+        }
 
         // Pie Chart
         Card(
@@ -152,7 +283,7 @@ fun PerformanceScreen(tasks: List<Task>) {
             }
         }
 
-        // Progress Bars
+        // Cumplimiento - RQNF-APP-48
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -165,9 +296,14 @@ fun PerformanceScreen(tasks: List<Task>) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Progreso",
+                    text = "Cumplimiento del rango",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "$completed de $total tareas completadas (${(completedPct * 100).toInt()}%)",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 ProgressBarRow(
                     label = "Cumplimiento",
@@ -192,7 +328,36 @@ fun PerformanceScreen(tasks: List<Task>) {
                 )
             }
         }
+    }
+}
 
+@Composable
+private fun DateField(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clickable { onClick() }
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -226,7 +391,7 @@ fun LegendItem(color: Color, label: String, count: Int) {
         Canvas(modifier = Modifier.size(12.dp)) {
             drawCircle(color = color)
         }
-        Spacer(modifier = Modifier.size(4.dp))
+        Spacer(modifier = Modifier.width(4.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(text = label, fontSize = 11.sp)
             Text(text = count.toString(), fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -259,4 +424,3 @@ fun ProgressBarRow(label: String, progress: Float, color: Color, count: Int, tot
         )
     }
 }
-

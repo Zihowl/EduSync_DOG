@@ -113,6 +113,7 @@ class SubjectsFragment : Fragment() {
 
             override fun onPrepareMenu(menu: Menu) {
                 if (isNotCurrentFragment()) return
+                if ((activity as? dev.zihowl.dog.ui.main.MainActivity)?.isPerformanceVisible() == true) return
                 val isDetailVisible = requireActivity().supportFragmentManager.backStackEntryCount > 0
                 val isSelection = viewModel.isSelectionMode.value == true
                 val selectedCount = viewModel.selectedSubjects.value?.size ?: 0

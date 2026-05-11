@@ -148,6 +148,7 @@ class TasksFragment : Fragment() {
 
             override fun onPrepareMenu(menu: Menu) {
                 if (!isResumed || isNotCurrentFragment()) return
+                if ((activity as? dev.zihowl.dog.ui.main.MainActivity)?.isPerformanceVisible() == true) return
                 val isSelection = viewModel.isSelectionMode.value == true
                 val selectedCount = viewModel.selectedTasks.value?.size ?: 0
                 menu.findItem(R.id.action_add)?.isVisible = !isSelection

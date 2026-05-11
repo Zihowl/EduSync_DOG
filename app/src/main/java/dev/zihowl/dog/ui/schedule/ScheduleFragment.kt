@@ -508,6 +508,7 @@ class ScheduleFragment : Fragment() {
 
             override fun onPrepareMenu(menu: Menu) {
                 if (!isResumed || isNotCurrentFragment()) return
+                if ((activity as? dev.zihowl.dog.ui.main.MainActivity)?.isPerformanceVisible() == true) return
                 val isSelection = isSelectionMode
                 val selectedCount = selectedManualEvents.size
                 menu.findItem(R.id.action_add)?.isVisible = !isSelection
