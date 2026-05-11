@@ -75,6 +75,7 @@ class AddTaskDialogFragment : DialogFragment() {
         val priorityAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, priorityOptions)
         priorityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerPriority.adapter = priorityAdapter
+        spinnerPriority.setSelection(priorityValues.indexOf(Task.PRIORITY_MEDIUM))
 
         view.findViewById<TextView>(R.id.dialog_task_title)?.text = if (isEditing) "Editar Tarea" else "Nueva Tarea"
 

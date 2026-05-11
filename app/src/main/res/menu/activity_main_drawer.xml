@@ -8,6 +8,21 @@
             android:id="@+id/nav_performance"
             android:title="Rendimiento Académico"
             android:icon="@android:drawable/ic_menu_info_details" />
+        <item
+            android:id="@+id/nav_share_task"
+            android:title="Compartir tarea"
+            android:icon="@android:drawable/ic_menu_share"
+            android:visible="false" />
+        <item
+            android:id="@+id/nav_teacher_schedules"
+            android:title="Horarios de profesores"
+            android:icon="@android:drawable/ic_menu_my_calendar"
+            android:visible="false" />
+        <item
+            android:id="@+id/nav_notifications"
+            android:title="Notificaciones"
+            android:icon="@android:drawable/ic_popup_reminder"
+            android:visible="false" />
     </group>
 
 </menu>

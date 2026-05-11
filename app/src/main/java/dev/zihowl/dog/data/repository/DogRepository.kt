@@ -11,16 +11,48 @@ import dev.zihowl.dog.data.model.Note
 import dev.zihowl.dog.data.model.Subject
 import dev.zihowl.dog.data.model.SyncQueueItem
 import dev.zihowl.dog.data.model.Task
+import dev.zihowl.dog.utils.Aes256Crypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class DogRepository(
     private val subjectDao: SubjectDao,
     private val taskDao: TaskDao,
     private val noteDao: NoteDao,
     private val manualEventDao: ManualEventDao,
-    private val syncQueueDao: SyncQueueDao
+    private val syncQueueDao: SyncQueueDao,
+    private val syncKeyProvider: (() -> ByteArray)? = null
 ) {
+    private fun enc(value: String?): String? {
+        if (value.isNullOrEmpty()) return value
+        val key = syncKeyProvider?.invoke() ?: return value
+        return Aes256Crypto.encrypt(value, key) ?: value
+    }
+
+    private fun enqueue(
+        entityType: String,
+        entityId: Int,
+        operation: String,
+        owner: String,
+        build: JSONObject.() -> Unit
+    ) {
+        val payload = JSONObject().apply {
+            put("id", entityId)
+            put("encrypted", syncKeyProvider != null)
+            build()
+        }
+        syncQueueDao.insert(
+            SyncQueueItem(
+                entityType = entityType,
+                entityId = entityId,
+                operation = operation,
+                payloadJson = payload.toString(),
+                owner = owner
+            )
+        )
+    }
+
     val allSubjects: LiveData<List<Subject>> = subjectDao.getAll()
     val allTasks: LiveData<List<Task>> = taskDao.getAll()
     val allNotes: LiveData<List<Note>> = noteDao.getAll()
@@ -111,39 +143,68 @@ class DogRepository(
         }
     }
 
+    private fun enqueueTask(task: Task, op: String) {
+        enqueue(SyncQueueItem.TYPE_TASK, task.id, op, task.owner) {
+            put("title", task.title)
+            put("description", enc(task.description))
+            put("dueDate", task.dueDate?.time)
+            put("status", task.status)
+            put("subjectName", task.subjectName)
+            put("priority", task.priority)
+        }
+    }
+
     suspend fun addTask(task: Task) {
         withContext(Dispatchers.IO) {
-            taskDao.insert(task)
+            val rowId = taskDao.insert(task)
+            val saved = if (task.id == 0) task.copy(id = rowId.toInt()) else task
+            enqueueTask(saved, SyncQueueItem.OP_INSERT)
         }
     }
 
     suspend fun updateTask(task: Task) {
         withContext(Dispatchers.IO) {
             taskDao.update(task)
+            enqueueTask(task, SyncQueueItem.OP_UPDATE)
         }
     }
 
     suspend fun deleteTasks(tasks: List<Task>) {
         withContext(Dispatchers.IO) {
             taskDao.deleteAll(tasks)
+            tasks.forEach { enqueueTask(it, SyncQueueItem.OP_DELETE) }
+        }
+    }
+
+    private fun enqueueNote(note: Note, op: String) {
+        enqueue(SyncQueueItem.TYPE_NOTE, note.id, op, note.owner) {
+            put("title", note.title)
+            put("content", enc(note.content))
+            put("subjectName", note.subjectName)
+            put("attachmentName", enc(note.attachmentName))
+            put("attachmentSize", note.attachmentSize)
         }
     }
 
     suspend fun addNote(note: Note) {
         withContext(Dispatchers.IO) {
-            noteDao.insert(note)
+            val rowId = noteDao.insert(note)
+            val saved = if (note.id == 0) note.copy(id = rowId.toInt()) else note
+            enqueueNote(saved, SyncQueueItem.OP_INSERT)
         }
     }
 
     suspend fun updateNote(note: Note) {
         withContext(Dispatchers.IO) {
             noteDao.update(note)
+            enqueueNote(note, SyncQueueItem.OP_UPDATE)
         }
     }
 
     suspend fun deleteNotes(notes: List<Note>) {
         withContext(Dispatchers.IO) {
             noteDao.deleteAll(notes)
+            notes.forEach { enqueueNote(it, SyncQueueItem.OP_DELETE) }
         }
     }
 
@@ -187,21 +248,37 @@ class DogRepository(
 
     val allManualEvents: LiveData<List<ManualEvent>> = manualEventDao.getAll()
 
+    private fun enqueueManualEvent(event: ManualEvent, op: String) {
+        enqueue(SyncQueueItem.TYPE_MANUAL_EVENT, event.id, op, event.owner) {
+            put("title", enc(event.title))
+            put("location", enc(event.location))
+            put("startTime", event.startTime)
+            put("endTime", event.endTime)
+            put("frequencyType", event.frequencyType)
+            put("dayOfWeek", event.dayOfWeek)
+            put("date", event.date?.time)
+        }
+    }
+
     suspend fun addManualEvent(event: ManualEvent) {
         withContext(Dispatchers.IO) {
-            manualEventDao.insert(event)
+            val rowId = manualEventDao.insert(event)
+            val saved = if (event.id == 0) event.copy(id = rowId.toInt()) else event
+            enqueueManualEvent(saved, SyncQueueItem.OP_INSERT)
         }
     }
 
     suspend fun updateManualEvent(event: ManualEvent) {
         withContext(Dispatchers.IO) {
             manualEventDao.update(event)
+            enqueueManualEvent(event, SyncQueueItem.OP_UPDATE)
         }
     }
 
     suspend fun deleteManualEvents(events: List<ManualEvent>) {
         withContext(Dispatchers.IO) {
             manualEventDao.deleteAll(events)
+            events.forEach { enqueueManualEvent(it, SyncQueueItem.OP_DELETE) }
         }
     }
 

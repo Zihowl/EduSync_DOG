@@ -56,6 +56,14 @@
                 android:layout_marginTop="@dimen/space_xs"
                 android:textAppearance="?attr/textAppearanceLabelSmall"
                 android:textColor="?attr/colorPrimary" />
+
+            <TextView
+                android:id="@+id/textViewTaskPriority"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/space_xs"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorPrimary" />
         </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

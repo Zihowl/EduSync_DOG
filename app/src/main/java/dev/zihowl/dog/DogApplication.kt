@@ -23,7 +23,9 @@ class DogApplication : Application() {
         super.onCreate()
         applicationScope.launch(Dispatchers.IO) {
             val sessionManager = SessionManager(this@DogApplication)
-            sessionManager.role = "alumno"
+            if (sessionManager.role.isBlank()) {
+                sessionManager.role = SessionManager.ROLE_ALUMNO
+            }
 
             val db = AppDatabase.getInstance(this@DogApplication, sessionManager.getDbPassphrase())
             val repo = DogRepository(
@@ -31,7 +33,8 @@ class DogApplication : Application() {
                 db.taskDao(),
                 db.noteDao(),
                 db.manualEventDao(),
-                db.syncQueueDao()
+                db.syncQueueDao(),
+                syncKeyProvider = { sessionManager.getSyncAesKey() }
             )
             repositoryDeferred.complete(repo)
 

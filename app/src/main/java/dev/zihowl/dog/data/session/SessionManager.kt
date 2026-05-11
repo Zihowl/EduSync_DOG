@@ -2,8 +2,10 @@ package dev.zihowl.dog.data.session
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.security.SecureRandom
 
 class SessionManager(context: Context) {
     companion object {
@@ -11,9 +13,12 @@ class SessionManager(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_ROLE = "role"
         private const val KEY_DB_PASSPHRASE = "db_passphrase"
+        private const val KEY_SYNC_AES_KEY = "sync_aes_key"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_IS_GUEST_MODE = "is_guest_mode"
-        private const val DEFAULT_ROLE = "alumno"
+        const val ROLE_ALUMNO = "alumno"
+        const val ROLE_DOCENTE = "docente"
+        private const val DEFAULT_ROLE = ROLE_ALUMNO
     }
 
     private val prefs: SharedPreferences = try {
@@ -54,6 +59,16 @@ class SessionManager(context: Context) {
             prefs.edit().putString(KEY_DB_PASSPHRASE, passphrase).apply()
         }
         return net.sqlcipher.database.SQLiteDatabase.getBytes(passphrase.toCharArray())
+    }
+
+    fun getSyncAesKey(): ByteArray {
+        val stored = prefs.getString(KEY_SYNC_AES_KEY, null)
+        if (stored != null) {
+            return Base64.decode(stored, Base64.NO_WRAP)
+        }
+        val key = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        prefs.edit().putString(KEY_SYNC_AES_KEY, Base64.encodeToString(key, Base64.NO_WRAP)).apply()
+        return key
     }
 
     private fun generatePassphrase(): String {

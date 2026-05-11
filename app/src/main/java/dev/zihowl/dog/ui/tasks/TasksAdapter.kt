@@ -80,6 +80,7 @@ class TasksAdapter(
         val description: TextView = itemView.findViewById(R.id.textViewTaskDescription)
         val dueDate: TextView = itemView.findViewById(R.id.textViewTaskDueDate)
         val subjectName: TextView = itemView.findViewById(R.id.textViewTaskSubject)
+        val priority: TextView = itemView.findViewById(R.id.textViewTaskPriority)
         val completedCheckBox: CheckBox = itemView.findViewById(R.id.checkBoxTaskCompleted)
         val defaultCardBackgroundColor: Int = (itemView as CardView).cardBackgroundColor.defaultColor
 
@@ -105,6 +106,12 @@ class TasksAdapter(
                 subjectName.visibility = View.VISIBLE
             } else {
                 subjectName.visibility = View.GONE
+            }
+
+            priority.text = "Prioridad: " + when (task.priority) {
+                Task.PRIORITY_HIGH -> "Alta"
+                Task.PRIORITY_LOW -> "Baja"
+                else -> "Media"
             }
 
             completedCheckBox.isChecked = task.status == Task.STATUS_COMPLETED || task.status == Task.STATUS_NOT_COMPLETED

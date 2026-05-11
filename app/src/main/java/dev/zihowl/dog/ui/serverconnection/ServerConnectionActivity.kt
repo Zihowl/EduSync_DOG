@@ -35,7 +35,7 @@ class ServerConnectionActivity : AppCompatActivity() {
             sessionManager.isGuestMode = true
             sessionManager.isLoggedIn = false
             sessionManager.username = "Invitado"
-            sessionManager.role = "alumno"
+            sessionManager.role = SessionManager.ROLE_ALUMNO
             Toast.makeText(this, "Modo invitado activado", Toast.LENGTH_SHORT).show()
             navigateToMain()
         }

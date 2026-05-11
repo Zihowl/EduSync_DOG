@@ -3,22 +3,35 @@ package dev.zihowl.dog.ui.main
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
+import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.ui.notes.NotesFragment
 import dev.zihowl.dog.ui.schedule.ScheduleFragment
 import dev.zihowl.dog.ui.subjects.SubjectsFragment
 import dev.zihowl.dog.ui.tasks.TasksFragment
 
-class ViewPagerAdapter(fragmentActivity: FragmentActivity) : FragmentStateAdapter(fragmentActivity) {
+class ViewPagerAdapter(
+    fragmentActivity: FragmentActivity,
+    role: String = SessionManager.ROLE_ALUMNO
+) : FragmentStateAdapter(fragmentActivity) {
 
-    override fun getItemCount(): Int = 4
+    data class TabSpec(val title: String, val factory: () -> Fragment)
 
-    override fun createFragment(position: Int): Fragment {
-        return when (position) {
-            0 -> SubjectsFragment()
-            1 -> TasksFragment()
-            2 -> NotesFragment()
-            3 -> ScheduleFragment()
-            else -> throw IllegalArgumentException("Invalid position: $position")
-        }
+    val tabs: List<TabSpec> = if (role == SessionManager.ROLE_DOCENTE) {
+        listOf(
+            TabSpec("Materias") { SubjectsFragment() },
+            TabSpec("Notas") { NotesFragment() },
+            TabSpec("Horario") { ScheduleFragment() }
+        )
+    } else {
+        listOf(
+            TabSpec("Materias") { SubjectsFragment() },
+            TabSpec("Tareas") { TasksFragment() },
+            TabSpec("Notas") { NotesFragment() },
+            TabSpec("Horario") { ScheduleFragment() }
+        )
     }
+
+    override fun getItemCount(): Int = tabs.size
+
+    override fun createFragment(position: Int): Fragment = tabs[position].factory()
 }

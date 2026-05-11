@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity(),
     private lateinit var scheduleViewModel: ScheduleViewModel
     private lateinit var sessionManager: SessionManager
     private lateinit var syncStatusManager: SyncStatusManager
+    private lateinit var pagerAdapter: ViewPagerAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,14 +67,17 @@ class MainActivity : AppCompatActivity(),
         contentMainView = findViewById(R.id.contentMainLayout)
         fragmentContainer = findViewById(R.id.fragment_container)
 
-        val initialTab = intent?.getIntExtra(EXTRA_OPEN_TAB, -1)?.takeIf { it in 0..3 } ?: 0
+        sessionManager = SessionManager(this)
+
+        val initialTabRequest = intent?.getIntExtra(EXTRA_OPEN_TAB, -1) ?: -1
         intent?.removeExtra(EXTRA_OPEN_TAB)
 
         setupViewModels()
         setupToolbarAndDrawer()
+        applyRoleVisibility()
         setupSyncStatus()
         setupAuthButtons()
-        setupViewPagerAndTabs(initialTab)
+        setupViewPagerAndTabs(resolveLegacyTabIndex(initialTabRequest))
 
         supportFragmentManager.addOnBackStackChangedListener(this)
     }
@@ -81,8 +85,8 @@ class MainActivity : AppCompatActivity(),
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val tab = intent.getIntExtra(EXTRA_OPEN_TAB, -1)
-        if (tab in 0..3) {
+        val tab = resolveLegacyTabIndex(intent.getIntExtra(EXTRA_OPEN_TAB, -1))
+        if (tab >= 0) {
             viewPager.setCurrentItem(tab, false)
             updateTitleBasedOnPage(tab)
             intent.removeExtra(EXTRA_OPEN_TAB)
@@ -134,18 +138,12 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setupViewPagerAndTabs(initialTab: Int = 0) {
-        val adapter = ViewPagerAdapter(this)
-        viewPager.adapter = adapter
+        pagerAdapter = ViewPagerAdapter(this, sessionManager.role)
+        viewPager.adapter = pagerAdapter
         viewPager.offscreenPageLimit = 1
 
         TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-            tab.text = when (position) {
-                0 -> "Materias"
-                1 -> "Tareas"
-                2 -> "Notas"
-                3 -> "Horario"
-                else -> ""
-            }
+            tab.text = pagerAdapter.tabs.getOrNull(position)?.title ?: ""
         }.attach()
 
         fun setTabBold(tab: TabLayout.Tab?, bold: Boolean) {
@@ -190,18 +188,30 @@ class MainActivity : AppCompatActivity(),
             .commit()
     }
 
-    fun isCurrentTab(tabIndex: Int): Boolean = viewPager.currentItem == tabIndex
+    fun isCurrentTab(tabIndex: Int): Boolean = viewPager.currentItem == resolveLegacyTabIndex(tabIndex)
 
     fun isPerformanceVisible(): Boolean = fragmentContainer.visibility == View.VISIBLE
 
-    private fun updateTitleBasedOnPage(position: Int) {
-        val newTitle = when (position) {
+    private fun resolveLegacyTabIndex(legacy: Int): Int {
+        val targetTitle = when (legacy) {
             0 -> "Materias"
-            1 -> "Tareas"
-            2 -> "Notas"
-            3 -> "Horario"
-            else -> getString(R.string.app_name)
+            TAB_TASKS -> "Tareas"
+            TAB_NOTES -> "Notas"
+            TAB_SCHEDULE -> "Horario"
+            else -> return if (::pagerAdapter.isInitialized) 0 else 0
         }
+        if (!::pagerAdapter.isInitialized) {
+            return if (sessionManager.role == SessionManager.ROLE_DOCENTE && targetTitle == "Tareas") 0
+            else legacy.coerceAtLeast(0)
+        }
+        val idx = pagerAdapter.tabs.indexOfFirst { it.title == targetTitle }
+        return if (idx >= 0) idx else 0
+    }
+
+    private fun updateTitleBasedOnPage(position: Int) {
+        val newTitle = if (::pagerAdapter.isInitialized) {
+            pagerAdapter.tabs.getOrNull(position)?.title ?: getString(R.string.app_name)
+        } else getString(R.string.app_name)
         supportActionBar?.title = newTitle
     }
 
@@ -284,11 +294,11 @@ class MainActivity : AppCompatActivity(),
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_add -> {
-                when (viewPager.currentItem) {
-                    0 -> AddSubjectDialogFragment().show(supportFragmentManager, "AddSubjectDialog")
-                    1 -> AddTaskDialogFragment.newInstance().show(supportFragmentManager, "AddTaskDialog")
-                    2 -> AddNoteDialogFragment().show(supportFragmentManager, "AddNoteDialog")
-                    3 -> dev.zihowl.dog.ui.schedule.AddManualEventDialogFragment().show(supportFragmentManager, "AddManualEventDialog")
+                when (pagerAdapter.tabs.getOrNull(viewPager.currentItem)?.title) {
+                    "Materias" -> AddSubjectDialogFragment().show(supportFragmentManager, "AddSubjectDialog")
+                    "Tareas" -> AddTaskDialogFragment.newInstance().show(supportFragmentManager, "AddTaskDialog")
+                    "Notas" -> AddNoteDialogFragment().show(supportFragmentManager, "AddNoteDialog")
+                    "Horario" -> dev.zihowl.dog.ui.schedule.AddManualEventDialogFragment().show(supportFragmentManager, "AddManualEventDialog")
                 }
                 true
             }
@@ -337,8 +347,25 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
+    private fun applyRoleVisibility() {
+        val navigationView = findViewById<NavigationView>(R.id.nav_view)
+        val perf = navigationView.menu.findItem(R.id.nav_performance)
+        perf?.isVisible = sessionManager.role != SessionManager.ROLE_DOCENTE
+
+        if (sessionManager.isGuestMode) {
+            navigationView.menu.findItem(R.id.nav_share_task)?.let {
+                it.isVisible = true; it.isEnabled = false
+            }
+            navigationView.menu.findItem(R.id.nav_teacher_schedules)?.let {
+                it.isVisible = true; it.isEnabled = false
+            }
+            navigationView.menu.findItem(R.id.nav_notifications)?.let {
+                it.isVisible = true; it.isEnabled = false
+            }
+        }
+    }
+
     private fun setupAuthButtons() {
-        sessionManager = SessionManager(this)
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
         val headerView = navigationView.getHeaderView(0)
         val headerUser = headerView.findViewById<TextView>(R.id.header_user)
