@@ -1,78 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    android:padding="@dimen/space_lg">
+    android:padding="@dimen/space_lg"
+    android:fillViewport="true">
 
     <LinearLayout
-        android:id="@+id/content_container"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.35">
-
-        <ImageView
-            android:id="@+id/logo_image"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:src="@mipmap/ic_launcher"
-            android:contentDescription="@string/app_name"
-            android:layout_marginBottom="@dimen/space_lg" />
+        android:gravity="center_horizontal">
 
         <TextView
-            android:id="@+id/title_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/app_name"
+            android:text="@string/verify_email_title"
             android:textAppearance="?attr/textAppearanceHeadlineMedium"
             android:textColor="@color/on_background"
+            android:layout_marginTop="@dimen/space_xl"
             android:layout_marginBottom="@dimen/space_xs" />
 
         <TextView
             android:id="@+id/subtitle_text"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/server_connection_subtitle"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="@color/on_surface_variant"
+            android:gravity="center"
             android:layout_marginBottom="@dimen/space_xl" />
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/url_input_layout"
+            android:id="@+id/code_input_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_server_url"
+            android:hint="@string/hint_verification_code"
             app:boxBackgroundMode="outline"
             app:boxCornerRadiusTopStart="@dimen/card_corner_small"
             app:boxCornerRadiusTopEnd="@dimen/card_corner_small"
             app:boxCornerRadiusBottomStart="@dimen/card_corner_small"
             app:boxCornerRadiusBottomEnd="@dimen/card_corner_small"
-            app:startIconDrawable="@drawable/ic_server"
-            android:layout_marginBottom="@dimen/space_lg">
+            android:layout_marginBottom="@dimen/space_md">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/url_input"
+                android:id="@+id/code_input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textUri"
+                android:inputType="number"
+                android:maxLength="6"
                 android:maxLines="1" />
-
         </com.google.android.material.textfield.TextInputLayout>
 
+        <TextView
+            android:id="@+id/expiration_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@color/on_surface_variant"
+            android:layout_marginBottom="@dimen/space_lg" />
+
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/connect_button"
+            android:id="@+id/verify_button"
             style="@style/Widget.Material3.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/action_connect"
+            android:text="@string/action_verify"
             android:textAllCaps="false"
             android:textColor="?attr/colorOnPrimary"
             app:backgroundTint="?attr/colorPrimary"
@@ -80,25 +73,19 @@
             android:paddingVertical="@dimen/space_sm" />
 
         <ProgressBar
-            android:id="@+id/connect_progress"
+            android:id="@+id/verify_progress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_sm"
             android:visibility="gone" />
 
+        <TextView
+            android:id="@+id/error_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_sm"
+            android:textColor="?attr/colorError"
+            android:gravity="center"
+            android:visibility="gone" />
     </LinearLayout>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/guest_mode_button"
-        style="@style/Widget.Material3.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/continue_as_guest"
-        android:textAllCaps="false"
-        android:textColor="@color/on_surface_variant"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginBottom="@dimen/space_lg" />
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

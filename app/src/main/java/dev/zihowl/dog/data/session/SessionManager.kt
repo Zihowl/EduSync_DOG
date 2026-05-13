@@ -16,8 +16,16 @@ class SessionManager(context: Context) {
         private const val KEY_SYNC_AES_KEY = "sync_aes_key"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_IS_GUEST_MODE = "is_guest_mode"
+        private const val KEY_SERVER_URL = "server_base_url"
+        private const val KEY_ACCESS_TOKEN = "access_token"
+        private const val KEY_TOKEN_EXPIRES_AT = "token_expires_at"
+        private const val KEY_LOCKOUT_UNTIL = "lockout_until"
+        private const val KEY_PENDING_VERIFICATION_TOKEN = "pending_verification_token"
+        private const val KEY_PENDING_VERIFICATION_EXPIRES_AT = "pending_verification_expires_at"
+        private const val KEY_PENDING_VERIFICATION_EMAIL = "pending_verification_email"
         const val ROLE_ALUMNO = "alumno"
         const val ROLE_DOCENTE = "docente"
+        const val ROLE_UNSUPPORTED = "unsupported"
         private const val DEFAULT_ROLE = ROLE_ALUMNO
     }
 
@@ -51,6 +59,34 @@ class SessionManager(context: Context) {
     var isGuestMode: Boolean
         get() = prefs.getBoolean(KEY_IS_GUEST_MODE, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_GUEST_MODE, value).apply()
+
+    var serverBaseUrl: String?
+        get() = prefs.getString(KEY_SERVER_URL, null)
+        set(value) = prefs.edit().putString(KEY_SERVER_URL, value).apply()
+
+    var accessToken: String?
+        get() = prefs.getString(KEY_ACCESS_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_ACCESS_TOKEN, value).apply()
+
+    var tokenExpiresAt: Long
+        get() = prefs.getLong(KEY_TOKEN_EXPIRES_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_TOKEN_EXPIRES_AT, value).apply()
+
+    var lockoutUntilEpochMs: Long
+        get() = prefs.getLong(KEY_LOCKOUT_UNTIL, 0L)
+        set(value) = prefs.edit().putLong(KEY_LOCKOUT_UNTIL, value).apply()
+
+    var pendingVerificationToken: String?
+        get() = prefs.getString(KEY_PENDING_VERIFICATION_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_PENDING_VERIFICATION_TOKEN, value).apply()
+
+    var pendingVerificationExpiresAt: Long
+        get() = prefs.getLong(KEY_PENDING_VERIFICATION_EXPIRES_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_PENDING_VERIFICATION_EXPIRES_AT, value).apply()
+
+    var pendingVerificationEmail: String?
+        get() = prefs.getString(KEY_PENDING_VERIFICATION_EMAIL, null)
+        set(value) = prefs.edit().putString(KEY_PENDING_VERIFICATION_EMAIL, value).apply()
 
     fun getDbPassphrase(): ByteArray {
         var passphrase = prefs.getString(KEY_DB_PASSPHRASE, null)

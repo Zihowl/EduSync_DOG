@@ -1,70 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    android:padding="@dimen/space_lg">
+    android:padding="@dimen/space_lg"
+    android:fillViewport="true">
 
     <LinearLayout
-        android:id="@+id/content_container"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:gravity="center"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.35">
-
-        <ImageView
-            android:id="@+id/logo_image"
-            android:layout_width="120dp"
-            android:layout_height="120dp"
-            android:src="@mipmap/ic_launcher"
-            android:contentDescription="@string/app_name"
-            android:layout_marginBottom="@dimen/space_lg" />
+        android:gravity="center_horizontal">
 
         <TextView
-            android:id="@+id/title_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/app_name"
+            android:text="@string/register_title"
             android:textAppearance="?attr/textAppearanceHeadlineMedium"
             android:textColor="@color/on_background"
+            android:layout_marginTop="@dimen/space_xl"
             android:layout_marginBottom="@dimen/space_xs" />
 
         <TextView
-            android:id="@+id/subtitle_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/login_subtitle"
+            android:text="@string/register_subtitle"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="@color/on_surface_variant"
             android:layout_marginBottom="@dimen/space_xl" />
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/username_input_layout"
+            android:id="@+id/email_input_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_username"
+            android:hint="@string/hint_email"
             app:boxBackgroundMode="outline"
             app:boxCornerRadiusTopStart="@dimen/card_corner_small"
             app:boxCornerRadiusTopEnd="@dimen/card_corner_small"
             app:boxCornerRadiusBottomStart="@dimen/card_corner_small"
             app:boxCornerRadiusBottomEnd="@dimen/card_corner_small"
-            app:startIconDrawable="@drawable/ic_login"
             android:layout_marginBottom="@dimen/space_md">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/username_input"
+                android:id="@+id/email_input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
+                android:inputType="textEmailAddress"
                 android:maxLines="1" />
-
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -78,7 +61,7 @@
             app:boxCornerRadiusBottomStart="@dimen/card_corner_small"
             app:boxCornerRadiusBottomEnd="@dimen/card_corner_small"
             app:endIconMode="password_toggle"
-            android:layout_marginBottom="@dimen/space_lg">
+            android:layout_marginBottom="@dimen/space_md">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/password_input"
@@ -86,15 +69,35 @@
                 android:layout_height="wrap_content"
                 android:inputType="textPassword"
                 android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
 
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/password_confirm_input_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/hint_password_confirmation"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusTopStart="@dimen/card_corner_small"
+            app:boxCornerRadiusTopEnd="@dimen/card_corner_small"
+            app:boxCornerRadiusBottomStart="@dimen/card_corner_small"
+            app:boxCornerRadiusBottomEnd="@dimen/card_corner_small"
+            app:endIconMode="password_toggle"
+            android:layout_marginBottom="@dimen/space_lg">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/password_confirm_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/login_button"
+            android:id="@+id/register_button"
             style="@style/Widget.Material3.Button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/action_login"
+            android:text="@string/action_register"
             android:textAllCaps="false"
             android:textColor="?attr/colorOnPrimary"
             app:backgroundTint="?attr/colorPrimary"
@@ -102,7 +105,7 @@
             android:paddingVertical="@dimen/space_sm" />
 
         <ProgressBar
-            android:id="@+id/login_progress"
+            android:id="@+id/register_progress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_sm"
@@ -118,25 +121,14 @@
             android:visibility="gone" />
 
         <TextView
-            android:id="@+id/lockout_timer_text"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/space_xs"
-            android:textColor="?attr/colorError"
-            android:gravity="center"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/go_to_register"
+            android:id="@+id/go_to_login"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_lg"
-            android:text="@string/action_go_to_register"
+            android:text="@string/action_go_to_login"
             android:textColor="?attr/colorPrimary"
             android:padding="@dimen/space_xs"
             android:clickable="true"
             android:focusable="true" />
-
     </LinearLayout>
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>
