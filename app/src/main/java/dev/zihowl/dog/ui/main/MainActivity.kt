@@ -17,13 +17,18 @@ import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import dev.zihowl.dog.R
+import dev.zihowl.dog.data.remote.AuthClient
+import dev.zihowl.dog.data.remote.RealtimeClient
+import dev.zihowl.dog.data.session.RoleMapper
 import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.data.sync.SyncStatusManager
+import kotlinx.coroutines.launch
 import dev.zihowl.dog.ui.ViewModelFactory
 import dev.zihowl.dog.ui.notes.AddNoteDialogFragment
 import dev.zihowl.dog.ui.notes.NotesViewModel
@@ -55,6 +60,11 @@ class MainActivity : AppCompatActivity(),
     private lateinit var syncStatusManager: SyncStatusManager
     private lateinit var pagerAdapter: ViewPagerAdapter
 
+    private val authClient = AuthClient()
+    private var realtimeClient: RealtimeClient? = null
+    @Volatile
+    private var isRefreshingRole = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -80,6 +90,48 @@ class MainActivity : AppCompatActivity(),
         setupViewPagerAndTabs(resolveLegacyTabIndex(initialTabRequest))
 
         supportFragmentManager.addOnBackStackChangedListener(this)
+
+        startRealtimeRoleSync()
+    }
+
+    /**
+     * Escucha cambios en el servidor (RealtimeEvents) y refresca el rol del
+     * usuario al instante si el catálogo de docentes lo modificó.
+     */
+    private fun startRealtimeRoleSync() {
+        if (sessionManager.isGuestMode || !sessionManager.isLoggedIn) return
+        val baseUrl = sessionManager.serverBaseUrl ?: return
+        realtimeClient = RealtimeClient().also { client ->
+            client.start(baseUrl) { scopes ->
+                val rolesMayHaveChanged = scopes.any {
+                    it.equals("USERS", ignoreCase = true) ||
+                        it.equals("TEACHERS", ignoreCase = true)
+                }
+                if (rolesMayHaveChanged) {
+                    runOnUiThread { refreshRoleFromServer(baseUrl) }
+                }
+            }
+        }
+    }
+
+    private fun refreshRoleFromServer(baseUrl: String) {
+        if (isRefreshingRole) return
+        val token = sessionManager.accessToken ?: return
+        isRefreshingRole = true
+        lifecycleScope.launch {
+            val result = authClient.refreshSession(baseUrl, token)
+            isRefreshingRole = false
+            if (result is AuthClient.LoginResult.Success) {
+                val newRole = RoleMapper.fromServer(result.serverRole)
+                if (newRole != SessionManager.ROLE_UNSUPPORTED && newRole != sessionManager.role) {
+                    sessionManager.accessToken = result.accessToken
+                    sessionManager.tokenExpiresAt =
+                        System.currentTimeMillis() + result.expiresIn * 1000
+                    sessionManager.role = newRole
+                    recreate()
+                }
+            }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -416,5 +468,7 @@ class MainActivity : AppCompatActivity(),
         if (::syncStatusManager.isInitialized) {
             syncStatusManager.unregister()
         }
+        realtimeClient?.stop()
+        realtimeClient = null
     }
 }

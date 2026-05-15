@@ -13,6 +13,7 @@ import dev.zihowl.dog.data.session.RoleMapper
 import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.databinding.ActivityLoginBinding
 import dev.zihowl.dog.ui.main.MainActivity
+import dev.zihowl.dog.ui.passwordreset.ForgotPasswordActivity
 import dev.zihowl.dog.ui.register.RegisterActivity
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -33,6 +34,9 @@ class LoginActivity : AppCompatActivity() {
         binding.loginButton.setOnClickListener { attemptLogin() }
         binding.goToRegister.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
+        }
+        binding.forgotPassword.setOnClickListener {
+            startActivity(Intent(this, ForgotPasswordActivity::class.java))
         }
 
         val now = System.currentTimeMillis()
@@ -115,6 +119,8 @@ class LoginActivity : AppCompatActivity() {
             }
             is AuthClient.LoginResult.InactiveAccount ->
                 showError(getString(R.string.error_account_inactive))
+            is AuthClient.LoginResult.RoleNotAllowed ->
+                showError(getString(R.string.error_admin_no_mobile))
             is AuthClient.LoginResult.Error ->
                 showError(getString(R.string.error_server_unreachable))
         }

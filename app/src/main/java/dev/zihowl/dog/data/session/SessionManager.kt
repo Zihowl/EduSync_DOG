@@ -23,6 +23,9 @@ class SessionManager(context: Context) {
         private const val KEY_PENDING_VERIFICATION_TOKEN = "pending_verification_token"
         private const val KEY_PENDING_VERIFICATION_EXPIRES_AT = "pending_verification_expires_at"
         private const val KEY_PENDING_VERIFICATION_EMAIL = "pending_verification_email"
+        private const val KEY_PENDING_RESET_TOKEN = "pending_reset_token"
+        private const val KEY_PENDING_RESET_EXPIRES_AT = "pending_reset_expires_at"
+        private const val KEY_PENDING_RESET_EMAIL = "pending_reset_email"
         const val ROLE_ALUMNO = "alumno"
         const val ROLE_DOCENTE = "docente"
         const val ROLE_UNSUPPORTED = "unsupported"
@@ -87,6 +90,18 @@ class SessionManager(context: Context) {
     var pendingVerificationEmail: String?
         get() = prefs.getString(KEY_PENDING_VERIFICATION_EMAIL, null)
         set(value) = prefs.edit().putString(KEY_PENDING_VERIFICATION_EMAIL, value).apply()
+
+    var pendingResetToken: String?
+        get() = prefs.getString(KEY_PENDING_RESET_TOKEN, null)
+        set(value) = prefs.edit().putString(KEY_PENDING_RESET_TOKEN, value).apply()
+
+    var pendingResetExpiresAt: Long
+        get() = prefs.getLong(KEY_PENDING_RESET_EXPIRES_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_PENDING_RESET_EXPIRES_AT, value).apply()
+
+    var pendingResetEmail: String?
+        get() = prefs.getString(KEY_PENDING_RESET_EMAIL, null)
+        set(value) = prefs.edit().putString(KEY_PENDING_RESET_EMAIL, value).apply()
 
     fun getDbPassphrase(): ByteArray {
         var passphrase = prefs.getString(KEY_DB_PASSPHRASE, null)

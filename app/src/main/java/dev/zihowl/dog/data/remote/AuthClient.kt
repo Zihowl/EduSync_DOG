@@ -20,6 +20,7 @@ class AuthClient(
         object InvalidCredentials : LoginResult()
         data class Locked(val unlockAtEpochMs: Long) : LoginResult()
         object InactiveAccount : LoginResult()
+        object RoleNotAllowed : LoginResult()
         data class Error(val cause: Throwable?) : LoginResult()
     }
 
@@ -38,6 +39,28 @@ class AuthClient(
         data class Error(val cause: Throwable?) : VerifyResult()
     }
 
+    sealed class PasswordResetResult {
+        data class Success(val verificationToken: String, val expiresAtEpochMs: Long) :
+            PasswordResetResult()
+        object EmailNotFound : PasswordResetResult()
+        data class Error(val cause: Throwable?) : PasswordResetResult()
+    }
+
+    sealed class VerifyResetResult {
+        object Success : VerifyResetResult()
+        object InvalidOrExpired : VerifyResetResult()
+        data class Error(val cause: Throwable?) : VerifyResetResult()
+    }
+
+    sealed class CompleteResetResult {
+        object Success : CompleteResetResult()
+        object WeakPassword : CompleteResetResult()
+        object PasswordMismatch : CompleteResetResult()
+        object SamePassword : CompleteResetResult()
+        object InvalidOrExpired : CompleteResetResult()
+        data class Error(val cause: Throwable?) : CompleteResetResult()
+    }
+
     suspend fun login(baseUrl: String, email: String, password: String): LoginResult {
         val query = """
             mutation(${'$'}i: LoginInput!) {
@@ -49,7 +72,11 @@ class AuthClient(
             }
         """.trimIndent()
         val variables = JSONObject().put(
-            "i", JSONObject().put("email", email).put("password", password)
+            "i",
+            JSONObject()
+                .put("email", email)
+                .put("password", password)
+                .put("platform", "MOBILE")
         )
         return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
             onSuccess = { resp ->
@@ -155,6 +182,151 @@ class AuthClient(
         )
     }
 
+    suspend fun requestPasswordReset(baseUrl: String, email: String): PasswordResetResult {
+        val query = """
+            mutation(${'$'}i: RequestPasswordResetInput!) {
+              RequestPasswordReset(input: ${'$'}i) {
+                verificationToken
+                expiresAt
+              }
+            }
+        """.trimIndent()
+        val variables = JSONObject().put("i", JSONObject().put("email", email))
+        return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
+            onSuccess = { resp ->
+                val msg = resp.firstErrorMessage()
+                if (msg != null) {
+                    val lower = msg.lowercase()
+                    if (lower.contains("no existe") || lower.contains("no encontr")) {
+                        PasswordResetResult.EmailNotFound
+                    } else {
+                        PasswordResetResult.Error(IllegalStateException(msg))
+                    }
+                } else {
+                    val r = resp.data?.optJSONObject("RequestPasswordReset")
+                        ?: return PasswordResetResult.Error(
+                            IllegalStateException("missing data.RequestPasswordReset")
+                        )
+                    PasswordResetResult.Success(
+                        verificationToken = r.optString("verificationToken"),
+                        expiresAtEpochMs = parseEpochMs(r.optString("expiresAt"))
+                            ?: (System.currentTimeMillis() + 10 * 60 * 1000)
+                    )
+                }
+            },
+            onFailure = { PasswordResetResult.Error(it) }
+        )
+    }
+
+    suspend fun verifyPasswordResetCode(
+        baseUrl: String,
+        verificationToken: String,
+        code: String
+    ): VerifyResetResult {
+        val query = """
+            mutation(${'$'}i: VerifyResetCodeInput!) {
+              VerifyPasswordResetCode(input: ${'$'}i)
+            }
+        """.trimIndent()
+        val variables = JSONObject().put(
+            "i",
+            JSONObject().put("verificationToken", verificationToken).put("code", code)
+        )
+        return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
+            onSuccess = { resp ->
+                val msg = resp.firstErrorMessage()
+                if (msg != null) {
+                    val lower = msg.lowercase()
+                    if (lower.contains("incorrecto") || lower.contains("expirado") ||
+                        lower.contains("inválido")
+                    ) {
+                        VerifyResetResult.InvalidOrExpired
+                    } else {
+                        VerifyResetResult.Error(IllegalStateException(msg))
+                    }
+                } else {
+                    VerifyResetResult.Success
+                }
+            },
+            onFailure = { VerifyResetResult.Error(it) }
+        )
+    }
+
+    suspend fun completePasswordReset(
+        baseUrl: String,
+        verificationToken: String,
+        newPassword: String,
+        newPasswordConfirmation: String
+    ): CompleteResetResult {
+        val query = """
+            mutation(${'$'}i: CompletePasswordResetInput!) {
+              CompletePasswordReset(input: ${'$'}i)
+            }
+        """.trimIndent()
+        val variables = JSONObject().put(
+            "i",
+            JSONObject()
+                .put("verificationToken", verificationToken)
+                .put("newPassword", newPassword)
+                .put("newPasswordConfirmation", newPasswordConfirmation)
+        )
+        return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
+            onSuccess = { resp ->
+                val msg = resp.firstErrorMessage()
+                if (msg != null) {
+                    val lower = msg.lowercase()
+                    when {
+                        lower.contains("no coinciden") -> CompleteResetResult.PasswordMismatch
+                        lower.contains("criterios") -> CompleteResetResult.WeakPassword
+                        lower.contains("igual a la anterior") -> CompleteResetResult.SamePassword
+                        lower.contains("incorrecto") || lower.contains("expirado") ||
+                            lower.contains("verificar el código") ->
+                            CompleteResetResult.InvalidOrExpired
+                        else -> CompleteResetResult.Error(IllegalStateException(msg))
+                    }
+                } else {
+                    CompleteResetResult.Success
+                }
+            },
+            onFailure = { CompleteResetResult.Error(it) }
+        )
+    }
+
+    /// Re-emite el token de sesión con el rol actual del usuario.
+    suspend fun refreshSession(baseUrl: String, accessToken: String): LoginResult {
+        val query = """
+            mutation {
+              RefreshSession {
+                accessToken
+                expiresIn
+                user { email fullName role }
+              }
+            }
+        """.trimIndent()
+        return runCatching {
+            GraphQL.post(client, baseUrl, query, JSONObject(), bearerToken = accessToken)
+        }.fold(
+            onSuccess = { resp ->
+                val msg = resp.firstErrorMessage()
+                if (msg != null) {
+                    classifyLoginError(msg)
+                } else {
+                    val refresh = resp.data?.optJSONObject("RefreshSession")
+                        ?: return LoginResult.Error(IllegalStateException("missing data.RefreshSession"))
+                    val user = refresh.optJSONObject("user")
+                    LoginResult.Success(
+                        accessToken = refresh.optString("accessToken"),
+                        expiresIn = refresh.optLong("expiresIn", 0L),
+                        serverRole = user?.optStringOrNull("role"),
+                        email = user?.optStringOrNull("email"),
+                        fullName = user?.optStringOrNull("fullName")
+                    )
+                }
+            },
+            onFailure = { LoginResult.Error(it) }
+        )
+    }
+
     private fun classifyLoginError(message: String): LoginResult {
         val lower = message.lowercase()
         return when {
@@ -164,6 +336,8 @@ class AuthClient(
                 LoginResult.Locked(unlock)
             }
             lower.contains("inactiva") -> LoginResult.InactiveAccount
+            lower.contains("administrador") || lower.contains("plataforma web") ->
+                LoginResult.RoleNotAllowed
             lower.contains("credenciales") || lower.contains("inválid") -> LoginResult.InvalidCredentials
             else -> LoginResult.Error(IllegalStateException(message))
         }

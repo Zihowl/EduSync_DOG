@@ -66,6 +66,7 @@
     <string name="error_invalid_credentials">Credenciales inválidas. Verifica e intenta de nuevo.</string>
     <string name="error_account_inactive">La cuenta está inactiva. Contacta al administrador.</string>
     <string name="error_role_unsupported">Esta cuenta no tiene acceso a la app móvil. Usa la plataforma web.</string>
+    <string name="error_admin_no_mobile">Las cuentas de administrador deben usar la plataforma web CAT.</string>
     <string name="lockout_message">Demasiados intentos. Reintenta en %1$s</string>
     <string name="action_go_to_register">¿No tienes cuenta? Regístrate</string>
     <string name="action_go_to_login">¿Ya tienes cuenta? Inicia sesión</string>
@@ -88,6 +89,23 @@
     <string name="verification_expires_in">El código expira en %1$s</string>
     <string name="verification_expired">El código expiró. Solicita uno nuevo.</string>
     <string name="error_verification_code_invalid">Código incorrecto o expirado</string>
+
+    <string name="action_forgot_password">¿Olvidaste tu contraseña?</string>
+    <string name="forgot_password_title">Restablecer contraseña</string>
+    <string name="forgot_password_subtitle">Ingresa tu correo institucional y te enviaremos un código de verificación</string>
+    <string name="action_send_code">Enviar código</string>
+    <string name="error_reset_email_not_found">No existe una cuenta registrada con ese correo</string>
+    <string name="reset_password_title">Nueva contraseña</string>
+    <string name="reset_password_subtitle">Te enviamos un código de 6 dígitos a %1$s</string>
+    <string name="reset_code_section_label">1. Verifica el código</string>
+    <string name="reset_password_section_label">2. Define tu nueva contraseña</string>
+    <string name="action_verify_code">Verificar código</string>
+    <string name="action_reset_password">Restablecer contraseña</string>
+    <string name="hint_new_password">Nueva contraseña</string>
+    <string name="hint_new_password_confirmation">Confirmar nueva contraseña</string>
+    <string name="reset_code_verified">Código verificado. Define tu nueva contraseña.</string>
+    <string name="error_password_same_as_previous">La nueva contraseña no puede ser igual a la anterior</string>
+    <string name="reset_password_success">Contraseña restablecida. Inicia sesión con tu nueva contraseña.</string>
     <string name="no_subjects">No hay materias registradas</string>
     <string name="no_tasks">No hay tareas registradas</string>
     <string name="no_notes">No hay notas registradas</string>

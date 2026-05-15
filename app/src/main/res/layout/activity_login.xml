@@ -127,10 +127,21 @@
             android:visibility="gone" />
 
         <TextView
-            android:id="@+id/go_to_register"
+            android:id="@+id/forgot_password"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/space_lg"
+            android:text="@string/action_forgot_password"
+            android:textColor="?attr/colorPrimary"
+            android:padding="@dimen/space_xs"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/go_to_register"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/space_xs"
             android:text="@string/action_go_to_register"
             android:textColor="?attr/colorPrimary"
             android:padding="@dimen/space_xs"

@@ -38,7 +38,8 @@ internal object GraphQL {
         client: OkHttpClient,
         baseUrl: String,
         query: String,
-        variables: JSONObject
+        variables: JSONObject,
+        bearerToken: String? = null
     ): GraphQLResponse = withContext(Dispatchers.IO) {
         val normalized = normalize(baseUrl) ?: error("invalid base url")
         val body = JSONObject()
@@ -50,6 +51,11 @@ internal object GraphQL {
             .url("$normalized/graphql")
             .post(body)
             .addHeader("Accept", "application/json")
+            .apply {
+                if (!bearerToken.isNullOrBlank()) {
+                    addHeader("Authorization", "Bearer $bearerToken")
+                }
+            }
             .build()
         client.newCall(request).execute().use { response ->
             val raw = response.body?.string().orEmpty()
