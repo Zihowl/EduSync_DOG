@@ -17,5 +17,7 @@ data class Subject(
     /** Materia oficial sincronizada desde el servidor: solo lectura. */
     val isOfficial: Boolean = false,
     /** Grupo/subgrupo del que proviene una materia oficial (para re-sync). */
-    val sourceGroupId: Int? = null
+    val sourceGroupId: Int? = null,
+    /** Salón asignado a la materia oficial (para detectar cambios de salón). */
+    val classroom: String? = null
 ) : Serializable

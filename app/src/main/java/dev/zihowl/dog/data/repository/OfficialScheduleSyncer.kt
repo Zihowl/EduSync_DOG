@@ -1,7 +1,11 @@
 package dev.zihowl.dog.data.repository
 
+import android.content.Context
+import dev.zihowl.dog.data.model.Notification
+import dev.zihowl.dog.data.model.Subject
 import dev.zihowl.dog.data.remote.CatalogClient
 import dev.zihowl.dog.data.session.SessionManager
+import dev.zihowl.dog.notifications.NotificationHelper
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -57,12 +61,23 @@ data class ScheduleConfig(
  * oficiales (solo lectura) en la base de datos local. Reutilizado por la
  * pantalla "Mi grupo y materias" (alumno) y por la importación automática del
  * docente.
+ *
+ * Además detecta los cambios de salón, horario o docente entre el estado
+ * local previo y el recién descargado, y genera las notificaciones
+ * correspondientes (RQF-APP-27/28/29). Como el estado previo vive persistido
+ * en Room, la detección es offline-first: los cambios ocurridos mientras el
+ * dispositivo estuvo sin servidor se notifican en la primera sincronización
+ * exitosa tras recuperar el acceso.
+ *
+ * @param appContext contexto de aplicación para emitir la notificación del
+ *   sistema. Si es `null` solo se persiste la entrada en la bandeja in-app.
  */
 class OfficialScheduleSyncer(
     private val repository: DogRepository,
     private val session: SessionManager,
     private val weekDays: List<String>,
-    private val catalogClient: CatalogClient = CatalogClient()
+    private val catalogClient: CatalogClient = CatalogClient(),
+    private val appContext: Context? = null
 ) {
     sealed class Result {
         object Success : Result()
@@ -92,7 +107,7 @@ class OfficialScheduleSyncer(
         }
 
         val combined = combineStudentSlots(slots, groupId, subgroupId, config)
-        repository.syncOfficialSubjects(combined, emptySet(), session.currentOwner(), weekDays)
+        applyAndNotify(combined, emptySet())
         return Result.Success
     }
 
@@ -107,8 +122,81 @@ class OfficialScheduleSyncer(
                 return Result.Error(r.cause?.message ?: "Error de red")
             CatalogClient.ScheduleResult.Unauthorized -> return Result.SessionInvalid
         }
-        repository.syncOfficialSubjects(slots, emptySet(), session.currentOwner(), weekDays)
+        applyAndNotify(slots, emptySet())
         return Result.Success
+    }
+
+    /**
+     * Materializa las materias oficiales y, comparando contra el estado
+     * previo, genera notificaciones por cada cambio de salón, horario o
+     * docente detectado.
+     */
+    private suspend fun applyAndNotify(
+        slots: List<CatalogClient.RemoteSlot>,
+        discardedNames: Set<String>
+    ) {
+        val owner = session.currentOwner()
+        val before = repository.getOfficialSubjects(owner).associateBy { it.name }
+        repository.syncOfficialSubjects(slots, discardedNames, owner, weekDays)
+        val after = repository.getOfficialSubjects(owner).associateBy { it.name }
+        detectChanges(before, after, owner)
+    }
+
+    /** Compara materia por materia y persiste/emite las notificaciones. */
+    private suspend fun detectChanges(
+        before: Map<String, Subject>,
+        after: Map<String, Subject>,
+        owner: String
+    ) {
+        for ((name, newSubject) in after) {
+            val oldSubject = before[name] ?: continue // materia nueva: no es "cambio"
+            buildChange(owner, name, Notification.TYPE_TEACHER, oldSubject.professorName, newSubject.professorName)
+            buildChange(owner, name, Notification.TYPE_SCHEDULE, oldSubject.schedule, newSubject.schedule)
+            buildChange(owner, name, Notification.TYPE_ROOM, oldSubject.classroom, newSubject.classroom)
+        }
+    }
+
+    private suspend fun buildChange(
+        owner: String,
+        subjectName: String,
+        type: String,
+        oldValue: String?,
+        newValue: String?
+    ) {
+        val current = newValue?.takeIf { it.isNotBlank() } ?: return
+        if (oldValue.orEmpty() == current) return
+
+        val title: String
+        val body: String
+        when (type) {
+            Notification.TYPE_ROOM -> {
+                title = "Cambio de salón"
+                body = "$subjectName: nuevo salón → $current"
+            }
+            Notification.TYPE_TEACHER -> {
+                title = "Cambio de docente"
+                body = "$subjectName: nuevo docente → $current"
+            }
+            else -> {
+                title = "Cambio de horario"
+                body = "$subjectName: el horario fue actualizado"
+            }
+        }
+
+        val notification = Notification(
+            owner = owner,
+            title = title,
+            body = body,
+            type = type,
+            subjectName = subjectName,
+            newValue = current
+        )
+        // recordNotificationIfNew deduplica contra el último valor conocido:
+        // reconexiones repetidas no repiten el aviso.
+        val inserted = repository.recordNotificationIfNew(notification)
+        if (inserted) {
+            appContext?.let { NotificationHelper.notifyScheduleChange(it, notification) }
+        }
     }
 
     /**

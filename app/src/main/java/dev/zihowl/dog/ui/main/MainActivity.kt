@@ -97,6 +97,32 @@ class MainActivity : AppCompatActivity(),
 
         startRealtimeRoleSync()
         syncOfficialSchedule()
+        requestNotificationPermissionIfNeeded()
+
+        if (intent?.getBooleanExtra(EXTRA_OPEN_NOTIFICATIONS, false) == true) {
+            intent.removeExtra(EXTRA_OPEN_NOTIFICATIONS)
+            showNotificationsFragment()
+        }
+    }
+
+    /**
+     * Permiso de notificaciones en runtime (Android 13+). Necesario para que
+     * lleguen los avisos de cambios de horario (RQF-APP-27/28/29).
+     */
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+        ) { /* el usuario decide; sin acción adicional */ }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (sessionManager.isGuestMode) return
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.POST_NOTIFICATIONS
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     /**
@@ -109,7 +135,8 @@ class MainActivity : AppCompatActivity(),
         if (!::repository.isInitialized) return
         val weekDays = resources.getStringArray(R.array.week_days).toList()
         val syncer = dev.zihowl.dog.data.repository.OfficialScheduleSyncer(
-            repository, sessionManager, weekDays
+            repository, sessionManager, weekDays,
+            appContext = applicationContext
         )
         lifecycleScope.launch {
             val result = if (sessionManager.role == SessionManager.ROLE_DOCENTE) {
@@ -204,6 +231,11 @@ class MainActivity : AppCompatActivity(),
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_OPEN_NOTIFICATIONS, false)) {
+            intent.removeExtra(EXTRA_OPEN_NOTIFICATIONS)
+            showNotificationsFragment()
+            return
+        }
         val tab = resolveLegacyTabIndex(intent.getIntExtra(EXTRA_OPEN_TAB, -1))
         if (tab >= 0) {
             viewPager.setCurrentItem(tab, false)
@@ -214,6 +246,7 @@ class MainActivity : AppCompatActivity(),
 
     companion object {
         const val EXTRA_OPEN_TAB = "dev.zihowl.dog.extra.OPEN_TAB"
+        const val EXTRA_OPEN_NOTIFICATIONS = "dev.zihowl.dog.extra.OPEN_NOTIFICATIONS"
         const val TAB_TASKS = 1
         const val TAB_NOTES = 2
         const val TAB_SCHEDULE = 3
@@ -227,8 +260,21 @@ class MainActivity : AppCompatActivity(),
                 val headerSyncStatus = headerView.findViewById<TextView>(R.id.header_sync_status)
                 headerSyncStatus.text = status
             }
+            // Al recuperar el acceso al servidor se re-sincroniza el horario:
+            // garantiza la entrega diferida de las notificaciones de cambios
+            // ocurridos mientras el dispositivo estuvo sin conexión.
+            val reconnected = status == dev.zihowl.dog.data.sync.SyncStatusManager.STATUS_SYNCED &&
+                lastSyncStatus != null &&
+                lastSyncStatus != dev.zihowl.dog.data.sync.SyncStatusManager.STATUS_SYNCED
+            lastSyncStatus = status
+            if (reconnected) {
+                syncOfficialSchedule()
+            }
         }
     }
+
+    /** Último estado de sincronización observado (para detectar reconexión). */
+    private var lastSyncStatus: String? = null
 
     private fun setupViewModels() {
         val repo = kotlinx.coroutines.runBlocking {
@@ -439,8 +485,49 @@ class MainActivity : AppCompatActivity(),
                 showScheduleSetupFragment()
                 return true
             }
+            R.id.nav_teacher_schedules -> {
+                showTeacherSchedulesFragment()
+                return true
+            }
+            R.id.nav_notifications -> {
+                showNotificationsFragment()
+                return true
+            }
         }
         return true
+    }
+
+    private fun showTeacherSchedulesFragment() {
+        showContainerFragment(
+            "Horarios de profesores",
+            dev.zihowl.dog.ui.teacherschedules.TeacherSchedulesFragment::class.java
+        )
+    }
+
+    private fun showNotificationsFragment() {
+        showContainerFragment(
+            "Notificaciones",
+            dev.zihowl.dog.ui.notifications.NotificationsFragment::class.java
+        )
+    }
+
+    /**
+     * Muestra un fragmento de pantalla completa en el contenedor compartido
+     * (mismo mecanismo que Rendimiento y "Mi grupo y materias").
+     */
+    private fun showContainerFragment(title: String, fragmentClass: Class<out androidx.fragment.app.Fragment>) {
+        contentMainView.visibility = View.GONE
+        tabLayout.visibility = View.GONE
+        fragmentContainer.visibility = View.VISIBLE
+        invalidateOptionsMenu()
+        supportActionBar?.title = title
+
+        val existing = supportFragmentManager.findFragmentById(R.id.fragment_container)
+        if (existing == null || existing::class.java != fragmentClass) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, fragmentClass.getDeclaredConstructor().newInstance())
+                .commit()
+        }
     }
 
     private fun showScheduleSetupFragment() {
@@ -509,6 +596,17 @@ class MainActivity : AppCompatActivity(),
             }
             navigationView.menu.findItem(R.id.nav_notifications)?.let {
                 it.isVisible = true; it.isEnabled = false
+            }
+        } else {
+            // Consulta de horarios de profesores: solo alumnos (RQF-APP-54/55).
+            navigationView.menu.findItem(R.id.nav_teacher_schedules)?.let {
+                it.isVisible = sessionManager.role != SessionManager.ROLE_DOCENTE
+                it.isEnabled = true
+            }
+            // Notificaciones de cambios de horario: alumnos y docentes.
+            navigationView.menu.findItem(R.id.nav_notifications)?.let {
+                it.isVisible = true
+                it.isEnabled = true
             }
         }
     }

@@ -5,11 +5,13 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.switchMap
 import dev.zihowl.dog.data.local.ManualEventDao
 import dev.zihowl.dog.data.local.NoteDao
+import dev.zihowl.dog.data.local.NotificationDao
 import dev.zihowl.dog.data.local.SubjectDao
 import dev.zihowl.dog.data.local.SyncQueueDao
 import dev.zihowl.dog.data.local.TaskDao
 import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Note
+import dev.zihowl.dog.data.model.Notification
 import dev.zihowl.dog.data.model.Subject
 import dev.zihowl.dog.data.model.SyncQueueItem
 import dev.zihowl.dog.data.model.Task
@@ -24,6 +26,7 @@ class DogRepository(
     private val noteDao: NoteDao,
     private val manualEventDao: ManualEventDao,
     private val syncQueueDao: SyncQueueDao,
+    private val notificationDao: NotificationDao,
     private val syncKeyProvider: (() -> ByteArray)? = null,
     initialOwner: String = ""
 ) {
@@ -191,6 +194,8 @@ class DogRepository(
                     }
                 val professor = subjectSlots
                     .firstNotNullOfOrNull { it.teacherName }
+                val classroom = subjectSlots
+                    .firstNotNullOfOrNull { it.classroomName }
                 subjectDao.insert(
                     Subject(
                         name = name,
@@ -198,7 +203,8 @@ class DogRepository(
                         schedule = schedule,
                         owner = owner,
                         isOfficial = true,
-                        sourceGroupId = subjectSlots.first().groupId
+                        sourceGroupId = subjectSlots.first().groupId,
+                        classroom = classroom
                     )
                 )
             }
@@ -418,6 +424,7 @@ class DogRepository(
             noteDao.reassignOwner(from, to)
             manualEventDao.reassignOwner(from, to)
             syncQueueDao.reassignOwner(from, to)
+            notificationDao.reassignOwner(from, to)
         }
     }
 
@@ -429,6 +436,7 @@ class DogRepository(
             noteDao.deleteByOwner(owner)
             manualEventDao.deleteByOwner(owner)
             syncQueueDao.clearForOwner(owner)
+            notificationDao.deleteByOwner(owner)
         }
     }
 
@@ -441,6 +449,44 @@ class DogRepository(
         withContext(Dispatchers.IO) {
             subjectDao.deleteAllOfficialForOwner(owner)
         }
+    }
+
+    /** Materias oficiales (sincronizadas del servidor) de [owner]. */
+    suspend fun getOfficialSubjects(owner: String): List<Subject> {
+        return withContext(Dispatchers.IO) {
+            subjectDao.getAllForOwner(owner).filter { it.isOfficial }
+        }
+    }
+
+    // --- Bandeja de notificaciones (RQF-APP-27/28/29) ---
+
+    val notifications: LiveData<List<Notification>> =
+        activeOwner.switchMap { notificationDao.getAllForOwnerLive(it) }
+
+    val unreadNotificationCount: LiveData<Int> =
+        activeOwner.switchMap { notificationDao.unreadCountForOwnerLive(it) }
+
+    /**
+     * Registra una notificación si representa un cambio nuevo. Devuelve `true`
+     * solo si se insertó (deduplica contra el último valor conocido para esa
+     * materia y tipo de cambio, evitando avisos repetidos al re-sincronizar).
+     */
+    suspend fun recordNotificationIfNew(notification: Notification): Boolean {
+        return withContext(Dispatchers.IO) {
+            val last = notificationDao.latestValueFor(
+                notification.owner, notification.type, notification.subjectName
+            )
+            if (last == notification.newValue) {
+                false
+            } else {
+                notificationDao.insert(notification)
+                true
+            }
+        }
+    }
+
+    suspend fun markNotificationsRead(owner: String) {
+        withContext(Dispatchers.IO) { notificationDao.markAllReadForOwner(owner) }
     }
 
     /** Inserta registros restaurados desde un respaldo, sin encolar sync. */

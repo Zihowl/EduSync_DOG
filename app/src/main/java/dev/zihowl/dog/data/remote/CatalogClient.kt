@@ -105,6 +105,25 @@ class CatalogClient(
         return fetchSlots(baseUrl, accessToken, query, JSONObject(), "GetMyTeacherSchedule")
     }
 
+    /**
+     * Horario publicado de todos los docentes del plantel. Accesible a
+     * cualquier usuario autenticado; usado por la consulta de horarios de
+     * profesores del alumno (RQF-APP-54/55, RQNF-APP-51).
+     */
+    suspend fun getTeacherSchedules(baseUrl: String, accessToken: String): ScheduleResult {
+        val query = """
+            query {
+              GetTeacherSchedules {
+                groupId dayOfWeek startTime endTime subgroup
+                subject { name }
+                teacher { name }
+                classroom { name }
+              }
+            }
+        """.trimIndent()
+        return fetchSlots(baseUrl, accessToken, query, JSONObject(), "GetTeacherSchedules")
+    }
+
     private suspend fun fetchSlots(
         baseUrl: String,
         accessToken: String,
