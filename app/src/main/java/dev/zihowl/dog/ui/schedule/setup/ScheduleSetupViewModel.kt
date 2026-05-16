@@ -87,6 +87,10 @@ class ScheduleSetupViewModel(app: Application) : AndroidViewModel(app) {
                     _stage.value = Stage.Error(
                         r.cause?.message ?: "No se pudo cargar el catálogo de grupos."
                     )
+                CatalogClient.GroupsResult.Unauthorized ->
+                    _stage.value = Stage.Error(
+                        "Tu sesión ya no es válida. Inicia sesión de nuevo."
+                    )
             }
         }
     }
@@ -126,6 +130,8 @@ class ScheduleSetupViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 is CatalogClient.ScheduleResult.Error ->
                     saveResult.value = "Error al cargar materias: ${r.cause?.message ?: ""}"
+                CatalogClient.ScheduleResult.Unauthorized ->
+                    saveResult.value = "Tu sesión ya no es válida. Inicia sesión de nuevo."
             }
             _subjectsLoading.value = false
         }
@@ -155,6 +161,7 @@ class ScheduleSetupViewModel(app: Application) : AndroidViewModel(app) {
                 is CatalogClient.ScheduleResult.Success ->
                     onResult(r.slots.map { it.subjectName }.distinct().sorted())
                 is CatalogClient.ScheduleResult.Error -> onResult(null)
+                CatalogClient.ScheduleResult.Unauthorized -> onResult(null)
             }
         }
     }
@@ -203,6 +210,8 @@ class ScheduleSetupViewModel(app: Application) : AndroidViewModel(app) {
                     saveResult.value = "Selecciona tu grupo y subgrupo."
                 is OfficialScheduleSyncer.Result.Error ->
                     saveResult.value = "Guardado, pero falló la descarga: ${r.message}"
+                OfficialScheduleSyncer.Result.SessionInvalid ->
+                    saveResult.value = "Tu sesión ya no es válida. Inicia sesión de nuevo."
             }
         }
     }

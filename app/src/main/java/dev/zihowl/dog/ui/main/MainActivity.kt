@@ -66,6 +66,8 @@ class MainActivity : AppCompatActivity(),
     private var realtimeClient: RealtimeClient? = null
     @Volatile
     private var isRefreshingRole = false
+    /** Evita mostrar el diálogo de sesión inválida más de una vez. */
+    private var sessionInvalidHandled = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -110,11 +112,48 @@ class MainActivity : AppCompatActivity(),
             repository, sessionManager, weekDays
         )
         lifecycleScope.launch {
-            if (sessionManager.role == SessionManager.ROLE_DOCENTE) {
+            val result = if (sessionManager.role == SessionManager.ROLE_DOCENTE) {
                 syncer.syncForTeacher()
             } else {
                 syncer.syncForStudent()
             }
+            if (result is dev.zihowl.dog.data.repository.OfficialScheduleSyncer.Result.SessionInvalid) {
+                handleSessionInvalid()
+            }
+        }
+    }
+
+    /**
+     * El servidor rechazó la sesión: la cuenta ya no existe o el token es
+     * inválido. Avisa al usuario una sola vez y, al confirmar, limpia las
+     * materias oficiales "fantasma" y lo lleva a iniciar sesión de nuevo.
+     */
+    private fun handleSessionInvalid() {
+        if (sessionInvalidHandled || isFinishing) return
+        sessionInvalidHandled = true
+        val owner = sessionManager.currentOwner()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.session_invalid_title)
+            .setMessage(R.string.session_invalid_message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.session_invalid_action) { _, _ ->
+                finalizeSessionInvalid(owner)
+            }
+            .show()
+    }
+
+    /**
+     * Limpieza al invalidar la sesión: borra solo las materias oficiales y los
+     * datos de sesión (conserva materias manuales, tareas y notas del owner).
+     * No respalda en el servidor porque la cuenta ya no es válida.
+     */
+    private fun finalizeSessionInvalid(owner: String) {
+        lifecycleScope.launch {
+            repository.clearOfficialSubjects(owner)
+            sessionManager.isLoggedIn = false
+            sessionManager.accessToken = null
+            sessionManager.tokenExpiresAt = 0L
+            navigateToServerConnection()
         }
     }
 

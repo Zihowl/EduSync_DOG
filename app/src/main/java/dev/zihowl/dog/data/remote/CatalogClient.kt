@@ -36,11 +36,15 @@ class CatalogClient(
     sealed class GroupsResult {
         data class Success(val groups: List<RemoteGroup>) : GroupsResult()
         data class Error(val cause: Throwable?) : GroupsResult()
+        /** El servidor rechazó la sesión (cuenta inexistente/inactiva o token inválido). */
+        object Unauthorized : GroupsResult()
     }
 
     sealed class ScheduleResult {
         data class Success(val slots: List<RemoteSlot>) : ScheduleResult()
         data class Error(val cause: Throwable?) : ScheduleResult()
+        /** El servidor rechazó la sesión (cuenta inexistente/inactiva o token inválido). */
+        object Unauthorized : ScheduleResult()
     }
 
     suspend fun getGroups(baseUrl: String, accessToken: String): GroupsResult {
@@ -54,7 +58,9 @@ class CatalogClient(
         }.fold(
             onSuccess = { resp ->
                 val msg = resp.firstErrorMessage()
-                if (msg != null) {
+                if (resp.isAuthError()) {
+                    GroupsResult.Unauthorized
+                } else if (msg != null) {
                     GroupsResult.Error(IllegalStateException(msg))
                 } else {
                     val arr = resp.data?.optJSONArray("GetGroupCatalog") ?: JSONArray()
@@ -111,7 +117,9 @@ class CatalogClient(
         }.fold(
             onSuccess = { resp ->
                 val msg = resp.firstErrorMessage()
-                if (msg != null) {
+                if (resp.isAuthError()) {
+                    ScheduleResult.Unauthorized
+                } else if (msg != null) {
                     ScheduleResult.Error(IllegalStateException(msg))
                 } else {
                     val arr = resp.data?.optJSONArray(field) ?: JSONArray()

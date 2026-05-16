@@ -87,4 +87,16 @@ internal data class GraphQLResponse(
         if (errors.length() == 0) return null
         return errors.optJSONObject(0)?.optString("message")?.takeIf { it.isNotBlank() }
     }
+
+    /**
+     * Clasifica el primer error como un fallo de autenticación: la cuenta ya no
+     * existe, está inactiva o el token es inválido/expiró. NO incluye "acceso
+     * denegado" (eso es un fallo de rol, no de sesión).
+     */
+    fun isAuthError(): Boolean {
+        val m = firstErrorMessage()?.lowercase() ?: return false
+        return m.contains("no autorizado") || m.contains("token inválido") ||
+            m.contains("token invalido") || m.contains("expirad") ||
+            m.contains("unauthorized")
+    }
 }

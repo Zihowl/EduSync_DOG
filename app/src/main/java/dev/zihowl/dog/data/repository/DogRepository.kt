@@ -432,6 +432,17 @@ class DogRepository(
         }
     }
 
+    /**
+     * Borra solo las materias oficiales (sincronizadas del servidor) de [owner].
+     * Se usa al invalidar la sesión, para eliminar las materias "fantasma" sin
+     * tocar las materias manuales, tareas ni notas del usuario.
+     */
+    suspend fun clearOfficialSubjects(owner: String) {
+        withContext(Dispatchers.IO) {
+            subjectDao.deleteAllOfficialForOwner(owner)
+        }
+    }
+
     /** Inserta registros restaurados desde un respaldo, sin encolar sync. */
     suspend fun restoreRecords(
         subjects: List<Subject>,

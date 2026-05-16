@@ -68,6 +68,8 @@ class OfficialScheduleSyncer(
         object Success : Result()
         object NotConfigured : Result()
         data class Error(val message: String) : Result()
+        /** El servidor rechazó la sesión: la cuenta ya no es válida. */
+        object SessionInvalid : Result()
     }
 
     /** Sincroniza el horario del alumno según su configuración guardada. */
@@ -86,6 +88,7 @@ class OfficialScheduleSyncer(
             is CatalogClient.ScheduleResult.Success -> r.slots
             is CatalogClient.ScheduleResult.Error ->
                 return Result.Error(r.cause?.message ?: "Error de red")
+            CatalogClient.ScheduleResult.Unauthorized -> return Result.SessionInvalid
         }
 
         val combined = combineStudentSlots(slots, groupId, subgroupId, config)
@@ -102,6 +105,7 @@ class OfficialScheduleSyncer(
             is CatalogClient.ScheduleResult.Success -> r.slots
             is CatalogClient.ScheduleResult.Error ->
                 return Result.Error(r.cause?.message ?: "Error de red")
+            CatalogClient.ScheduleResult.Unauthorized -> return Result.SessionInvalid
         }
         repository.syncOfficialSubjects(slots, emptySet(), session.currentOwner(), weekDays)
         return Result.Success

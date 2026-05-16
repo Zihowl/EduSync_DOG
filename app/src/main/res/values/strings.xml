@@ -119,6 +119,9 @@
     <string name="logout_backup_failed_message">No se pudo respaldar tu información en el servidor. Si cierras sesión ahora podrías perder datos no respaldados.</string>
     <string name="logout_retry">Reintentar</string>
     <string name="logout_force">Cerrar sesión sin respaldar</string>
+    <string name="session_invalid_title">Sesión no válida</string>
+    <string name="session_invalid_message">Tu cuenta ya no está disponible en el servidor. Necesitas iniciar sesión de nuevo.</string>
+    <string name="session_invalid_action">Iniciar sesión</string>
     <string name="no_subjects">No hay materias registradas</string>
     <string name="no_tasks">No hay tareas registradas</string>
     <string name="no_notes">No hay notas registradas</string>
