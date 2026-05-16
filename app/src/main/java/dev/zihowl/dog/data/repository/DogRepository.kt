@@ -1,6 +1,8 @@
 package dev.zihowl.dog.data.repository
 
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.switchMap
 import dev.zihowl.dog.data.local.ManualEventDao
 import dev.zihowl.dog.data.local.NoteDao
 import dev.zihowl.dog.data.local.SubjectDao
@@ -22,8 +24,22 @@ class DogRepository(
     private val noteDao: NoteDao,
     private val manualEventDao: ManualEventDao,
     private val syncQueueDao: SyncQueueDao,
-    private val syncKeyProvider: (() -> ByteArray)? = null
+    private val syncKeyProvider: (() -> ByteArray)? = null,
+    initialOwner: String = ""
 ) {
+    /**
+     * Propietario activo de los datos. Los LiveData expuestos a la UI se
+     * recalculan automáticamente cuando cambia (cambio de cuenta / logout).
+     */
+    private val activeOwner = MutableLiveData(initialOwner)
+
+    /** Fija qué cuenta ve la UI. Debe llamarse al iniciar sesión o en MainActivity. */
+    fun setActiveOwner(owner: String) {
+        if (activeOwner.value != owner) activeOwner.postValue(owner)
+    }
+
+    fun currentActiveOwner(): String = activeOwner.value ?: ""
+
     private fun enc(value: String?): String? {
         if (value.isNullOrEmpty()) return value
         val key = syncKeyProvider?.invoke() ?: return value
@@ -53,9 +69,12 @@ class DogRepository(
         )
     }
 
-    val allSubjects: LiveData<List<Subject>> = subjectDao.getAll()
-    val allTasks: LiveData<List<Task>> = taskDao.getAll()
-    val allNotes: LiveData<List<Note>> = noteDao.getAll()
+    val allSubjects: LiveData<List<Subject>> =
+        activeOwner.switchMap { subjectDao.getAllForOwnerLive(it) }
+    val allTasks: LiveData<List<Task>> =
+        activeOwner.switchMap { taskDao.getAllForOwnerLive(it) }
+    val allNotes: LiveData<List<Note>> =
+        activeOwner.switchMap { noteDao.getAllForOwnerLive(it) }
 
     suspend fun subjectExists(name: String): Boolean {
         return withContext(Dispatchers.IO) {
@@ -128,6 +147,62 @@ class DogRepository(
             val notes = noteDao.getBySubjectName(subject.name)
             if (notes.isNotEmpty()) noteDao.deleteAll(notes)
             subjectDao.delete(subject)
+        }
+    }
+
+    /**
+     * Reemplaza las materias oficiales locales con las derivadas de los
+     * bloques de horario publicados [slots]. Las materias cuyo nombre esté en
+     * [discardedNames] (adelantadas por el alumno) se omiten. Si ya existe una
+     * materia manual con el mismo nombre, se conserva la manual y se omite la
+     * oficial para no pisar el contenido del usuario.
+     *
+     * @return nombres de materias oficiales que colisionaron con materias
+     *   manuales (no se materializaron).
+     */
+    suspend fun syncOfficialSubjects(
+        slots: List<dev.zihowl.dog.data.remote.CatalogClient.RemoteSlot>,
+        discardedNames: Set<String>,
+        owner: String,
+        weekDays: List<String>
+    ): List<String> {
+        return withContext(Dispatchers.IO) {
+            val collisions = mutableListOf<String>()
+            subjectDao.deleteAllOfficialForOwner(owner)
+
+            val bySubject = slots
+                .filter { it.subjectName !in discardedNames }
+                .groupBy { it.subjectName }
+
+            for ((name, subjectSlots) in bySubject) {
+                val existing = subjectDao.getByNameForOwner(name, owner)
+                if (existing != null && !existing.isOfficial) {
+                    collisions.add(name)
+                    continue
+                }
+                val schedule = subjectSlots
+                    .distinctBy { listOf(it.dayOfWeek, it.startTime, it.endTime) }
+                    .sortedWith(compareBy({ it.dayOfWeek }, { it.startTime }))
+                    .joinToString("\n") { slot ->
+                        val day = weekDays.getOrNull(slot.dayOfWeek - 1) ?: ""
+                        val start = slot.startTime.take(5)
+                        val end = slot.endTime.take(5)
+                        "$day $start - $end"
+                    }
+                val professor = subjectSlots
+                    .firstNotNullOfOrNull { it.teacherName }
+                subjectDao.insert(
+                    Subject(
+                        name = name,
+                        professorName = professor,
+                        schedule = schedule,
+                        owner = owner,
+                        isOfficial = true,
+                        sourceGroupId = subjectSlots.first().groupId
+                    )
+                )
+            }
+            collisions
         }
     }
 
@@ -246,7 +321,8 @@ class DogRepository(
         }
     }
 
-    val allManualEvents: LiveData<List<ManualEvent>> = manualEventDao.getAll()
+    val allManualEvents: LiveData<List<ManualEvent>> =
+        activeOwner.switchMap { manualEventDao.getAllForOwnerLive(it) }
 
     private fun enqueueManualEvent(event: ManualEvent, op: String) {
         enqueue(SyncQueueItem.TYPE_MANUAL_EVENT, event.id, op, event.owner) {
@@ -321,6 +397,53 @@ class DogRepository(
     suspend fun clearSyncQueue(owner: String) {
         withContext(Dispatchers.IO) {
             syncQueueDao.clearForOwner(owner)
+        }
+    }
+
+    /** Número total de registros locales (materias/tareas/notas/eventos) de [owner]. */
+    suspend fun countRecordsForOwner(owner: String): Int {
+        return withContext(Dispatchers.IO) {
+            subjectDao.countForOwner(owner) +
+                taskDao.countForOwner(owner) +
+                noteDao.countForOwner(owner) +
+                manualEventDao.countForOwner(owner)
+        }
+    }
+
+    /** Reasigna todos los registros de [from] a [to] (migración invitado→cuenta). */
+    suspend fun reassignOwner(from: String, to: String) {
+        withContext(Dispatchers.IO) {
+            subjectDao.reassignOwner(from, to)
+            taskDao.reassignOwner(from, to)
+            noteDao.reassignOwner(from, to)
+            manualEventDao.reassignOwner(from, to)
+            syncQueueDao.reassignOwner(from, to)
+        }
+    }
+
+    /** Borra todos los datos locales de [owner] (logout tras respaldo confirmado). */
+    suspend fun deleteByOwner(owner: String) {
+        withContext(Dispatchers.IO) {
+            subjectDao.deleteByOwner(owner)
+            taskDao.deleteByOwner(owner)
+            noteDao.deleteByOwner(owner)
+            manualEventDao.deleteByOwner(owner)
+            syncQueueDao.clearForOwner(owner)
+        }
+    }
+
+    /** Inserta registros restaurados desde un respaldo, sin encolar sync. */
+    suspend fun restoreRecords(
+        subjects: List<Subject>,
+        tasks: List<Task>,
+        notes: List<Note>,
+        events: List<ManualEvent>
+    ) {
+        withContext(Dispatchers.IO) {
+            subjects.forEach { subjectDao.insert(it.copy(id = 0)) }
+            tasks.forEach { taskDao.insert(it.copy(id = 0)) }
+            notes.forEach { noteDao.insert(it.copy(id = 0)) }
+            events.forEach { manualEventDao.insert(it.copy(id = 0)) }
         }
     }
 }

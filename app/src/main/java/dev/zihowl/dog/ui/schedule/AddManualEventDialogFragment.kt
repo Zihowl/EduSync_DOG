@@ -229,7 +229,7 @@ class AddManualEventDialogFragment : DialogFragment() {
 
         val locationRaw = editTextLocation.text?.toString()?.trim()
         val sessionManager = SessionManager(requireContext())
-        val owner = sessionManager.username
+        val owner = sessionManager.currentOwner()
         val event = ManualEvent(
             id = originalEvent?.id ?: 0,
             title = title,

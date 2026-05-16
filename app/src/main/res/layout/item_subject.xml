@@ -19,10 +19,25 @@
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceTitleLarge"
             android:textColor="?attr/colorOnSurface"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/badgeOfficial"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Cálculo Diferencial" />
+
+        <TextView
+            android:id="@+id/badgeOfficial"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@color/official_subject"
+            android:paddingHorizontal="@dimen/space_sm"
+            android:paddingVertical="2dp"
+            android:text="Oficial"
+            android:textAppearance="?attr/textAppearanceLabelSmall"
+            android:textColor="@color/white"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/textViewSubjectName"
+            tools:visibility="visible" />
 
         <TextView
             android:id="@+id/textViewProfessorName"

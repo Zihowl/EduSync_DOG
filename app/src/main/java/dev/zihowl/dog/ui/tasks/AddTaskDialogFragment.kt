@@ -154,7 +154,7 @@ class AddTaskDialogFragment : DialogFragment() {
         }
         val priority = priorityValues.getOrElse(spinnerPriority.selectedItemPosition) { Task.PRIORITY_MEDIUM }
         val sessionManager = SessionManager(requireContext())
-        val owner = sessionManager.username
+        val owner = sessionManager.currentOwner()
 
         if (isEditing && originalTask != null) {
             val updated = originalTask!!.copy(

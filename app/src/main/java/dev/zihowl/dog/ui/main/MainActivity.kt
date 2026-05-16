@@ -36,6 +36,7 @@ import dev.zihowl.dog.ui.subjects.AddSubjectDialogFragment
 import dev.zihowl.dog.ui.subjects.SubjectsViewModel
 import dev.zihowl.dog.ui.subjects.detail.SubjectDetailFragment
 import dev.zihowl.dog.ui.schedule.ScheduleViewModel
+import dev.zihowl.dog.ui.schedule.setup.ScheduleSetupFragment
 import dev.zihowl.dog.ui.performance.PerformanceFragment
 import dev.zihowl.dog.ui.tasks.AddTaskDialogFragment
 import dev.zihowl.dog.ui.tasks.TasksViewModel
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity(),
     private lateinit var contentMainView: View
     private lateinit var fragmentContainer: View
 
+    private lateinit var repository: dev.zihowl.dog.data.repository.DogRepository
     private lateinit var subjectsViewModel: SubjectsViewModel
     private lateinit var tasksViewModel: TasksViewModel
     private lateinit var notesViewModel: NotesViewModel
@@ -92,6 +94,28 @@ class MainActivity : AppCompatActivity(),
         supportFragmentManager.addOnBackStackChangedListener(this)
 
         startRealtimeRoleSync()
+        syncOfficialSchedule()
+    }
+
+    /**
+     * Importa/actualiza las materias oficiales (solo lectura). El docente
+     * recibe automáticamente las materias que imparte; el alumno, las de su
+     * grupo/subgrupo configurado. No hace nada en modo invitado o sin sesión.
+     */
+    private fun syncOfficialSchedule() {
+        if (sessionManager.isGuestMode || !sessionManager.isLoggedIn) return
+        if (!::repository.isInitialized) return
+        val weekDays = resources.getStringArray(R.array.week_days).toList()
+        val syncer = dev.zihowl.dog.data.repository.OfficialScheduleSyncer(
+            repository, sessionManager, weekDays
+        )
+        lifecycleScope.launch {
+            if (sessionManager.role == SessionManager.ROLE_DOCENTE) {
+                syncer.syncForTeacher()
+            } else {
+                syncer.syncForStudent()
+            }
+        }
     }
 
     /**
@@ -109,6 +133,10 @@ class MainActivity : AppCompatActivity(),
                 }
                 if (rolesMayHaveChanged) {
                     runOnUiThread { refreshRoleFromServer(baseUrl) }
+                }
+                val schedulesChanged = scopes.any { it.equals("SCHEDULES", ignoreCase = true) }
+                if (schedulesChanged) {
+                    runOnUiThread { syncOfficialSchedule() }
                 }
             }
         }
@@ -153,7 +181,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     private fun setupSyncStatus() {
-        syncStatusManager = SyncStatusManager(this)
+        syncStatusManager = (application as dev.zihowl.dog.DogApplication).syncStatusManager
         syncStatusManager.syncStatus.observe(this) { status ->
             if (!sessionManager.isGuestMode) {
                 val headerView = findViewById<NavigationView>(R.id.nav_view).getHeaderView(0)
@@ -167,6 +195,9 @@ class MainActivity : AppCompatActivity(),
         val repo = kotlinx.coroutines.runBlocking {
             (application as dev.zihowl.dog.DogApplication).repository()
         }
+        repository = repo
+        // Asegura que la UI solo vea los datos de la cuenta/sesión actual.
+        repository.setActiveOwner(sessionManager.currentOwner())
         val factory = ViewModelFactory(repo)
         subjectsViewModel = ViewModelProvider(this, factory)[SubjectsViewModel::class.java]
         tasksViewModel = ViewModelProvider(this, factory)[TasksViewModel::class.java]
@@ -365,8 +396,27 @@ class MainActivity : AppCompatActivity(),
                 showPerformanceFragment()
                 return true
             }
+            R.id.nav_my_group -> {
+                showScheduleSetupFragment()
+                return true
+            }
         }
         return true
+    }
+
+    private fun showScheduleSetupFragment() {
+        contentMainView.visibility = View.GONE
+        tabLayout.visibility = View.GONE
+        fragmentContainer.visibility = View.VISIBLE
+        invalidateOptionsMenu()
+        supportActionBar?.title = "Mi grupo y materias"
+
+        val existing = supportFragmentManager.findFragmentById(R.id.fragment_container)
+        if (existing !is ScheduleSetupFragment) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, ScheduleSetupFragment())
+                .commit()
+        }
     }
 
     private fun showPerformanceFragment() {
@@ -404,6 +454,13 @@ class MainActivity : AppCompatActivity(),
         val perf = navigationView.menu.findItem(R.id.nav_performance)
         perf?.isVisible = sessionManager.role != SessionManager.ROLE_DOCENTE
 
+        // El docente no elige grupo: la app le importa su horario automáticamente.
+        navigationView.menu.findItem(R.id.nav_my_group)?.let {
+            it.isVisible = sessionManager.role != SessionManager.ROLE_DOCENTE
+            // Requiere servidor: deshabilitado en modo invitado.
+            it.isEnabled = !sessionManager.isGuestMode
+        }
+
         if (sessionManager.isGuestMode) {
             navigationView.menu.findItem(R.id.nav_share_task)?.let {
                 it.isVisible = true; it.isEnabled = false
@@ -422,7 +479,15 @@ class MainActivity : AppCompatActivity(),
         val headerView = navigationView.getHeaderView(0)
         val headerUser = headerView.findViewById<TextView>(R.id.header_user)
         val headerSyncStatus = headerView.findViewById<TextView>(R.id.header_sync_status)
+        val headerServer = headerView.findViewById<TextView>(R.id.header_server)
         headerUser.text = sessionManager.username
+
+        val host = dev.zihowl.dog.utils.ServerUrlFormatter.displayHost(sessionManager.serverBaseUrl)
+        if (sessionManager.isGuestMode || host.isEmpty()) {
+            headerServer.text = getString(R.string.server_not_configured)
+        } else {
+            headerServer.text = getString(R.string.nav_connected_to, host)
+        }
 
         val loginButton = navigationView.findViewById<View?>(R.id.nav_login_button)
         val logoutButton = navigationView.findViewById<View?>(R.id.nav_logout_button)
@@ -442,6 +507,61 @@ class MainActivity : AppCompatActivity(),
         }
 
         logoutButton?.setOnClickListener {
+            performLogout()
+        }
+    }
+
+    /**
+     * Cierra sesión respaldando primero la información en el servidor. Los datos
+     * locales solo se borran si el respaldo se confirmó; si falla, se avisa al
+     * usuario y se le deja decidir.
+     */
+    private fun performLogout() {
+        drawerLayout.closeDrawer(GravityCompat.START)
+        val owner = sessionManager.currentOwner()
+        val progress = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setMessage(R.string.backup_in_progress)
+            .setCancelable(false)
+            .create()
+        progress.show()
+        lifecycleScope.launch {
+            val result = dev.zihowl.dog.data.backup.BackupManager(repository, sessionManager)
+                .uploadBackup(owner)
+            progress.dismiss()
+            when (result) {
+                is dev.zihowl.dog.data.backup.BackupManager.Result.Success,
+                is dev.zihowl.dog.data.backup.BackupManager.Result.Empty ->
+                    finalizeLogout(owner)
+                is dev.zihowl.dog.data.backup.BackupManager.Result.Error ->
+                    showBackupFailedDialog(owner)
+            }
+        }
+    }
+
+    private fun showBackupFailedDialog(owner: String) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.logout_backup_failed_title)
+            .setMessage(R.string.logout_backup_failed_message)
+            .setCancelable(false)
+            .setPositiveButton(R.string.logout_retry) { _, _ -> performLogout() }
+            .setNegativeButton(R.string.logout_force) { _, _ -> finalizeLogout(owner) }
+            .setNeutralButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun finalizeLogout(owner: String) {
+        lifecycleScope.launch {
+            repository.deleteByOwner(owner)
+            // Limpia la sesión conservando el servidor configurado.
+            sessionManager.isLoggedIn = false
+            sessionManager.accessToken = null
+            sessionManager.tokenExpiresAt = 0L
+            sessionManager.accountKey = null
+            sessionManager.backupKeyBase64 = null
+            sessionManager.username = "Alumno"
+            sessionManager.selectedGroupId = -1
+            sessionManager.selectedSubgroupId = -1
+            sessionManager.scheduleConfigJson = null
             navigateToServerConnection()
         }
     }
@@ -465,9 +585,8 @@ class MainActivity : AppCompatActivity(),
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::syncStatusManager.isInitialized) {
-            syncStatusManager.unregister()
-        }
+        // syncStatusManager es un singleton de proceso: su NetworkCallback no
+        // se desregistra aquí, vive mientras viva el proceso.
         realtimeClient?.stop()
         realtimeClient = null
     }

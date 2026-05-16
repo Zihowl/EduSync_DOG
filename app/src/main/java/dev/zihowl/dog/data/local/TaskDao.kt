@@ -25,6 +25,18 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE owner = :owner")
     fun getAllForOwner(owner: String): List<Task>
 
+    @Query("SELECT * FROM tasks WHERE owner = :owner")
+    fun getAllForOwnerLive(owner: String): LiveData<List<Task>>
+
+    @Query("SELECT COUNT(*) FROM tasks WHERE owner = :owner")
+    fun countForOwner(owner: String): Int
+
+    @Query("DELETE FROM tasks WHERE owner = :owner")
+    fun deleteByOwner(owner: String): Int
+
+    @Query("UPDATE tasks SET owner = :to WHERE owner = :from")
+    fun reassignOwner(from: String, to: String): Int
+
     @Insert
     fun insert(task: Task): Long
 

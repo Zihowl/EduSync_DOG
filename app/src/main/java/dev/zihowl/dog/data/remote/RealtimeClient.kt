@@ -1,5 +1,6 @@
 package dev.zihowl.dog.data.remote
 
+import dev.zihowl.dog.data.sync.SyncStatusManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,6 +75,7 @@ class RealtimeClient(
             val message = runCatching { JSONObject(text) }.getOrNull() ?: return
             when (message.optString("type")) {
                 "connection_ack" -> {
+                    SyncStatusManager.reportServerReachable()
                     val subscribe = JSONObject()
                         .put("id", SUBSCRIPTION_ID)
                         .put("type", "subscribe")
@@ -99,11 +101,15 @@ class RealtimeClient(
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            SyncStatusManager.reportServerUnreachable()
             scheduleReconnect()
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-            if (code != NORMAL_CLOSURE) scheduleReconnect()
+            if (code != NORMAL_CLOSURE) {
+                SyncStatusManager.reportServerUnreachable()
+                scheduleReconnect()
+            }
         }
     }
 

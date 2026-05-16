@@ -17,15 +17,26 @@ import kotlinx.coroutines.launch
 
 class ServerConnectionActivity : AppCompatActivity() {
 
+    companion object {
+        /** Fuerza mostrar esta pantalla aunque ya haya servidor/sesión (botón "Cambiar servidor"). */
+        const val EXTRA_FORCE_CONFIG = "dev.zihowl.dog.extra.FORCE_CONFIG"
+    }
+
     private lateinit var binding: ActivityServerConnectionBinding
     private val healthClient = ServerHealthClient()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val sessionManager = SessionManager(this)
+        val forceConfig = intent?.getBooleanExtra(EXTRA_FORCE_CONFIG, false) ?: false
+        if (!forceConfig && routeExistingSession(sessionManager)) {
+            return
+        }
+
         binding = ActivityServerConnectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val sessionManager = SessionManager(this)
         sessionManager.serverBaseUrl?.let { binding.urlInput.setText(it) }
 
         binding.connectButton.setOnClickListener {
@@ -48,9 +59,33 @@ class ServerConnectionActivity : AppCompatActivity() {
             sessionManager.isGuestMode = true
             sessionManager.isLoggedIn = false
             sessionManager.username = "Invitado"
+            // Sin cuenta: los datos quedan bajo GUEST_KEY, aislados de cuentas previas.
+            sessionManager.accountKey = null
+            sessionManager.accessToken = null
             sessionManager.role = SessionManager.ROLE_ALUMNO
             Toast.makeText(this, "Modo invitado activado", Toast.LENGTH_SHORT).show()
             navigateToMain()
+        }
+    }
+
+    /**
+     * Si ya existe una sesión utilizable, redirige sin mostrar esta pantalla.
+     * Devuelve true si redirigió (la Activity ya terminó).
+     */
+    private fun routeExistingSession(sessionManager: SessionManager): Boolean {
+        val now = System.currentTimeMillis()
+        return when {
+            sessionManager.isGuestMode -> {
+                navigateToMain(); true
+            }
+            sessionManager.isLoggedIn && sessionManager.tokenExpiresAt > now -> {
+                navigateToMain(); true
+            }
+            // Sesión expirada o sin sesión pero con servidor configurado: a login.
+            (sessionManager.isLoggedIn || !sessionManager.serverBaseUrl.isNullOrBlank()) -> {
+                navigateToLogin(); true
+            }
+            else -> false
         }
     }
 

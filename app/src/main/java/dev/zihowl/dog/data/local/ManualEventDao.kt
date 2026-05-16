@@ -28,6 +28,18 @@ interface ManualEventDao {
     @Query("SELECT * FROM manual_events WHERE owner = :owner")
     fun getAllForOwner(owner: String): List<ManualEvent>
 
+    @Query("SELECT * FROM manual_events WHERE owner = :owner")
+    fun getAllForOwnerLive(owner: String): LiveData<List<ManualEvent>>
+
+    @Query("SELECT COUNT(*) FROM manual_events WHERE owner = :owner")
+    fun countForOwner(owner: String): Int
+
+    @Query("DELETE FROM manual_events WHERE owner = :owner")
+    fun deleteByOwner(owner: String): Int
+
+    @Query("UPDATE manual_events SET owner = :to WHERE owner = :from")
+    fun reassignOwner(from: String, to: String): Int
+
     @Insert
     fun insert(event: ManualEvent): Long
 

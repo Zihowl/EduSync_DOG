@@ -26,4 +26,7 @@ interface SyncQueueDao {
 
     @Query("DELETE FROM sync_queue WHERE owner = :owner")
     fun clearForOwner(owner: String): Int
+
+    @Query("UPDATE sync_queue SET owner = :to WHERE owner = :from")
+    fun reassignOwner(from: String, to: String): Int
 }

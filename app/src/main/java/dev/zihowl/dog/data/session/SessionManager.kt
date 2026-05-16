@@ -26,10 +26,17 @@ class SessionManager(context: Context) {
         private const val KEY_PENDING_RESET_TOKEN = "pending_reset_token"
         private const val KEY_PENDING_RESET_EXPIRES_AT = "pending_reset_expires_at"
         private const val KEY_PENDING_RESET_EMAIL = "pending_reset_email"
+        private const val KEY_SELECTED_GROUP_ID = "selected_group_id"
+        private const val KEY_SELECTED_SUBGROUP_ID = "selected_subgroup_id"
+        private const val KEY_SCHEDULE_CONFIG_JSON = "schedule_config_json"
+        private const val KEY_ACCOUNT_KEY = "account_key"
+        private const val KEY_BACKUP_KEY = "backup_key"
         const val ROLE_ALUMNO = "alumno"
         const val ROLE_DOCENTE = "docente"
         const val ROLE_UNSUPPORTED = "unsupported"
         private const val DEFAULT_ROLE = ROLE_ALUMNO
+        /** Clave de propietario para los datos creados en modo invitado. */
+        const val GUEST_KEY = "__guest__"
     }
 
     private val prefs: SharedPreferences = try {
@@ -102,6 +109,43 @@ class SessionManager(context: Context) {
     var pendingResetEmail: String?
         get() = prefs.getString(KEY_PENDING_RESET_EMAIL, null)
         set(value) = prefs.edit().putString(KEY_PENDING_RESET_EMAIL, value).apply()
+
+    /** Grupo padre (tronco común) elegido por el alumno. -1 = sin selección. */
+    var selectedGroupId: Int
+        get() = prefs.getInt(KEY_SELECTED_GROUP_ID, -1)
+        set(value) = prefs.edit().putInt(KEY_SELECTED_GROUP_ID, value).apply()
+
+    /** Subgrupo (carrera) elegido por el alumno. -1 = sin selección. */
+    var selectedSubgroupId: Int
+        get() = prefs.getInt(KEY_SELECTED_SUBGROUP_ID, -1)
+        set(value) = prefs.edit().putInt(KEY_SELECTED_SUBGROUP_ID, value).apply()
+
+    /**
+     * JSON con la personalización del horario del alumno: materias oficiales
+     * descartadas (adelantadas) y materias arrastradas de otros grupos.
+     */
+    var scheduleConfigJson: String?
+        get() = prefs.getString(KEY_SCHEDULE_CONFIG_JSON, null)
+        set(value) = prefs.edit().putString(KEY_SCHEDULE_CONFIG_JSON, value).apply()
+
+    /**
+     * Clave estable de cuenta (email del usuario). Es el `owner` de todos los
+     * registros locales. En modo invitado no se fija; ver [currentOwner].
+     */
+    var accountKey: String?
+        get() = prefs.getString(KEY_ACCOUNT_KEY, null)
+        set(value) = prefs.edit().putString(KEY_ACCOUNT_KEY, value).apply()
+
+    /**
+     * Clave AES-256 (Base64) derivada de la contraseña para cifrar el respaldo.
+     * Solo vive mientras dura la sesión; nunca se envía al servidor.
+     */
+    var backupKeyBase64: String?
+        get() = prefs.getString(KEY_BACKUP_KEY, null)
+        set(value) = prefs.edit().putString(KEY_BACKUP_KEY, value).apply()
+
+    /** Propietario actual de los datos: la cuenta si hay sesión, o invitado. */
+    fun currentOwner(): String = accountKey?.takeIf { it.isNotBlank() } ?: GUEST_KEY
 
     fun getDbPassphrase(): ByteArray {
         var passphrase = prefs.getString(KEY_DB_PASSPHRASE, null)

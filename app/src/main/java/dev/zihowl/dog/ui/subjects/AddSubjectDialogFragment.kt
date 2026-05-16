@@ -157,7 +157,7 @@ class AddSubjectDialogFragment : DialogFragment() {
         if (scheduleString == null) return
 
         val sessionManager = SessionManager(requireContext())
-        val owner = sessionManager.username
+        val owner = sessionManager.currentOwner()
         if (isEditing && originalSubject != null) {
             viewModel.updateSubject(originalSubject!!, name, professorName, scheduleString)
             Toast.makeText(context, "Materia '$name' actualizada", Toast.LENGTH_SHORT).show()

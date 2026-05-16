@@ -5,9 +5,13 @@ import android.os.Bundle
 import android.os.CountDownTimer
 import android.util.Patterns
 import android.view.View
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import dev.zihowl.dog.DogApplication
 import dev.zihowl.dog.R
+import dev.zihowl.dog.data.backup.BackupCrypto
+import dev.zihowl.dog.data.backup.BackupManager
 import dev.zihowl.dog.data.remote.AuthClient
 import dev.zihowl.dog.data.session.RoleMapper
 import dev.zihowl.dog.data.session.SessionManager
@@ -16,6 +20,7 @@ import dev.zihowl.dog.ui.main.MainActivity
 import dev.zihowl.dog.ui.passwordreset.ForgotPasswordActivity
 import dev.zihowl.dog.ui.register.RegisterActivity
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Locale
 
 class LoginActivity : AppCompatActivity() {
@@ -30,6 +35,20 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
         session = SessionManager(this)
+
+        val host = dev.zihowl.dog.utils.ServerUrlFormatter.displayHost(session.serverBaseUrl)
+        binding.serverInfoText.text = if (host.isEmpty()) {
+            getString(R.string.server_not_configured)
+        } else {
+            getString(R.string.nav_connected_to, host)
+        }
+        binding.changeServerButton.setOnClickListener {
+            val intent = Intent(this, dev.zihowl.dog.ui.serverconnection.ServerConnectionActivity::class.java)
+                .putExtra(dev.zihowl.dog.ui.serverconnection.ServerConnectionActivity.EXTRA_FORCE_CONFIG, true)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
+        }
 
         binding.loginButton.setOnClickListener { attemptLogin() }
         binding.goToRegister.setOnClickListener {
@@ -87,16 +106,20 @@ class LoginActivity : AppCompatActivity() {
         setLoading(true)
         lifecycleScope.launch {
             val result = authClient.login(baseUrl, email, password)
-            setLoading(false)
-            handleLoginResult(result, email)
+            handleLoginResult(result, email, password)
         }
     }
 
-    private fun handleLoginResult(result: AuthClient.LoginResult, email: String) {
+    private suspend fun handleLoginResult(
+        result: AuthClient.LoginResult,
+        email: String,
+        password: String
+    ) {
         when (result) {
             is AuthClient.LoginResult.Success -> {
                 val mappedRole = RoleMapper.fromServer(result.serverRole)
                 if (mappedRole == SessionManager.ROLE_UNSUPPORTED) {
+                    setLoading(false)
                     showError(getString(R.string.error_role_unsupported))
                     return
                 }
@@ -104,27 +127,83 @@ class LoginActivity : AppCompatActivity() {
                 session.tokenExpiresAt = System.currentTimeMillis() + result.expiresIn * 1000
                 session.role = mappedRole
                 session.username = result.fullName?.takeIf { it.isNotBlank() } ?: email
+                session.accountKey = email.trim().lowercase()
                 session.isLoggedIn = true
                 session.isGuestMode = false
                 session.lockoutUntilEpochMs = 0L
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
+                // Clave de respaldo zero-knowledge derivada de la contraseña.
+                val key = BackupCrypto.deriveKey(password, email)
+                session.backupKeyBase64 = BackupCrypto.encodeKey(key)
+                completePostLogin()
+                return
             }
-            is AuthClient.LoginResult.InvalidCredentials ->
+            is AuthClient.LoginResult.InvalidCredentials -> {
+                setLoading(false)
                 showError(getString(R.string.error_invalid_credentials))
+            }
             is AuthClient.LoginResult.Locked -> {
+                setLoading(false)
                 session.lockoutUntilEpochMs = result.unlockAtEpochMs
                 val remaining = result.unlockAtEpochMs - System.currentTimeMillis()
                 if (remaining > 0) startLockoutCountdown(remaining)
             }
-            is AuthClient.LoginResult.InactiveAccount ->
+            is AuthClient.LoginResult.InactiveAccount -> {
+                setLoading(false)
                 showError(getString(R.string.error_account_inactive))
-            is AuthClient.LoginResult.RoleNotAllowed ->
+            }
+            is AuthClient.LoginResult.RoleNotAllowed -> {
+                setLoading(false)
                 showError(getString(R.string.error_admin_no_mobile))
-            is AuthClient.LoginResult.Error ->
+            }
+            is AuthClient.LoginResult.Error -> {
+                setLoading(false)
                 showError(getString(R.string.error_server_unreachable))
+            }
         }
     }
+
+    /**
+     * Tras un login exitoso: ofrece migrar los datos del modo invitado y
+     * recupera el respaldo del servidor antes de abrir la app.
+     */
+    private suspend fun completePostLogin() {
+        val repository = (application as DogApplication).repository()
+        val accountKey = session.currentOwner()
+
+        // Migración invitado -> cuenta (con confirmación del usuario).
+        val guestCount = repository.countRecordsForOwner(SessionManager.GUEST_KEY)
+        if (guestCount > 0) {
+            if (askMigrateGuestData(guestCount)) {
+                repository.reassignOwner(SessionManager.GUEST_KEY, accountKey)
+            } else {
+                repository.deleteByOwner(SessionManager.GUEST_KEY)
+            }
+        }
+
+        // Recupera el respaldo del servidor solo si no hay datos locales de la cuenta.
+        if (repository.countRecordsForOwner(accountKey) == 0) {
+            BackupManager(repository, session).downloadBackup(accountKey)
+        }
+
+        repository.setActiveOwner(accountKey)
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
+    }
+
+    private suspend fun askMigrateGuestData(count: Int): Boolean =
+        suspendCancellableCoroutine { cont ->
+            AlertDialog.Builder(this)
+                .setTitle(R.string.guest_migration_title)
+                .setMessage(getString(R.string.guest_migration_message, count))
+                .setCancelable(false)
+                .setPositiveButton(R.string.guest_migration_keep) { _, _ ->
+                    if (cont.isActive) cont.resumeWith(Result.success(true))
+                }
+                .setNegativeButton(R.string.guest_migration_discard) { _, _ ->
+                    if (cont.isActive) cont.resumeWith(Result.success(false))
+                }
+                .show()
+        }
 
     private fun setLoading(loading: Boolean) {
         binding.loginProgress.visibility = if (loading) View.VISIBLE else View.GONE

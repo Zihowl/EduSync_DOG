@@ -26,4 +26,13 @@
         android:layout_height="wrap_content"
         android:text="@string/sync_offline"
         android:textColor="?attr/colorOnSurfaceVariant" />
+
+    <TextView
+        android:id="@+id/header_server"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textAppearance="?attr/textAppearanceBodySmall" />
 </LinearLayout>

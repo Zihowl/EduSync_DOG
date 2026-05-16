@@ -45,6 +45,35 @@
             android:textColor="@color/on_surface_variant"
             android:layout_marginBottom="@dimen/space_xl" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="@dimen/space_lg">
+
+            <TextView
+                android:id="@+id/server_info_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="@color/on_surface_variant" />
+
+            <TextView
+                android:id="@+id/change_server_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/action_change_server"
+                android:textColor="?attr/colorPrimary"
+                android:padding="@dimen/space_xs"
+                android:clickable="true"
+                android:focusable="true" />
+
+        </LinearLayout>
+
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/username_input_layout"
             android:layout_width="match_parent"

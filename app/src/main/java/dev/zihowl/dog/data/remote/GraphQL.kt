@@ -1,5 +1,6 @@
 package dev.zihowl.dog.data.remote
 
+import dev.zihowl.dog.data.sync.SyncStatusManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -8,6 +9,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 internal object GraphQL {
@@ -57,9 +59,18 @@ internal object GraphQL {
                 }
             }
             .build()
-        client.newCall(request).execute().use { response ->
-            val raw = response.body?.string().orEmpty()
-            if (raw.isBlank()) error("empty response (HTTP ${response.code})")
+        val response = try {
+            client.newCall(request).execute()
+        } catch (e: IOException) {
+            // Fallo de red/timeout: el servidor no respondió.
+            SyncStatusManager.reportServerUnreachable()
+            throw e
+        }
+        // El servidor respondió HTTP: es accesible (aunque la query falle).
+        SyncStatusManager.reportServerReachable()
+        response.use { resp ->
+            val raw = resp.body?.string().orEmpty()
+            if (raw.isBlank()) error("empty response (HTTP ${resp.code})")
             val json = JSONObject(raw)
             val data = json.optJSONObject("data")
             val errors = json.optJSONArray("errors") ?: JSONArray()

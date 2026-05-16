@@ -45,4 +45,7 @@
     <color name="on_error_container">#410002</color>
 
     <color name="task_not_completed_background">#FFF5E6</color>
+
+    <!-- Materia oficial (horario sincronizado del servidor) -->
+    <color name="official_subject">#1E88E5</color>
 </resources>

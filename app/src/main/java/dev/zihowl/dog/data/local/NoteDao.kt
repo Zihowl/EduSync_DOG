@@ -25,6 +25,18 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE owner = :owner")
     fun getAllForOwner(owner: String): List<Note>
 
+    @Query("SELECT * FROM notes WHERE owner = :owner")
+    fun getAllForOwnerLive(owner: String): LiveData<List<Note>>
+
+    @Query("SELECT COUNT(*) FROM notes WHERE owner = :owner")
+    fun countForOwner(owner: String): Int
+
+    @Query("DELETE FROM notes WHERE owner = :owner")
+    fun deleteByOwner(owner: String): Int
+
+    @Query("UPDATE notes SET owner = :to WHERE owner = :from")
+    fun reassignOwner(from: String, to: String): Int
+
     @Insert
     fun insert(note: Note): Long
 

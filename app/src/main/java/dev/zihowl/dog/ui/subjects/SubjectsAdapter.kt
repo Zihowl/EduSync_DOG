@@ -46,6 +46,7 @@ class SubjectsAdapter(
 
     class SubjectViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val name: TextView = itemView.findViewById(R.id.textViewSubjectName)
+        val badgeOfficial: TextView = itemView.findViewById(R.id.badgeOfficial)
         val professorName: TextView = itemView.findViewById(R.id.textViewProfessorName)
         val schedule: TextView = itemView.findViewById(R.id.textViewSubjectSchedule)
         val tasksPending: TextView = itemView.findViewById(R.id.textViewTasksPending)
@@ -58,6 +59,7 @@ class SubjectsAdapter(
             longClickListener: (Subject, Int) -> Unit
         ) {
             name.text = subject.name
+            badgeOfficial.visibility = if (subject.isOfficial) View.VISIBLE else View.GONE
             schedule.text = formatSchedule(subject.schedule)
 
             if (!subject.professorName.isNullOrEmpty()) {
@@ -127,6 +129,7 @@ class SubjectsAdapter(
                         && oldItem.schedule == newItem.schedule
                         && oldItem.tasksPending == newItem.tasksPending
                         && oldItem.notesCount == newItem.notesCount
+                        && oldItem.isOfficial == newItem.isOfficial
             }
         }
     }

@@ -25,6 +25,30 @@ interface SubjectDao {
     @Query("SELECT * FROM subjects WHERE owner = :owner")
     fun getAllForOwner(owner: String): List<Subject>
 
+    @Query("SELECT * FROM subjects WHERE owner = :owner")
+    fun getAllForOwnerLive(owner: String): LiveData<List<Subject>>
+
+    @Query("SELECT * FROM subjects WHERE name = :name AND owner = :owner LIMIT 1")
+    fun getByNameForOwner(name: String, owner: String): Subject?
+
+    @Query("SELECT COUNT(*) FROM subjects WHERE owner = :owner")
+    fun countForOwner(owner: String): Int
+
+    @Query("SELECT * FROM subjects WHERE isOfficial = 1")
+    fun getOfficialList(): List<Subject>
+
+    @Query("DELETE FROM subjects WHERE isOfficial = 1")
+    fun deleteAllOfficial(): Int
+
+    @Query("DELETE FROM subjects WHERE isOfficial = 1 AND owner = :owner")
+    fun deleteAllOfficialForOwner(owner: String): Int
+
+    @Query("DELETE FROM subjects WHERE owner = :owner")
+    fun deleteByOwner(owner: String): Int
+
+    @Query("UPDATE subjects SET owner = :to WHERE owner = :from")
+    fun reassignOwner(from: String, to: String): Int
+
     @Query("SELECT EXISTS(SELECT 1 FROM subjects WHERE name = :name)")
     fun exists(name: String): Boolean
 

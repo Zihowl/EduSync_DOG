@@ -268,7 +268,12 @@ class ScheduleFragment : Fragment() {
                     val startMinutes = parseMinutes(sdf, times[0])
                     val endMinutes = parseMinutes(sdf, times[1])
                     if (startMinutes < endMinutes) {
-                        itemsToday.add(ScheduleItem(subject.name, null, startMinutes, endMinutes))
+                        val color = if (subject.isOfficial) {
+                            androidx.core.content.ContextCompat.getColor(requireContext(), R.color.official_subject)
+                        } else {
+                            Color.parseColor("#FF6D00")
+                        }
+                        itemsToday.add(ScheduleItem(subject.name, null, startMinutes, endMinutes, color))
                         if (firstEventStart == -1f || startMinutes < firstEventStart) firstEventStart = startMinutes
                     }
                 } catch (_: Exception) { }

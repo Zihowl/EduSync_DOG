@@ -13,5 +13,9 @@ data class Subject(
     val schedule: String? = null,
     val tasksPending: Int = 0,
     val notesCount: Int = 0,
-    val owner: String = ""
+    val owner: String = "",
+    /** Materia oficial sincronizada desde el servidor: solo lectura. */
+    val isOfficial: Boolean = false,
+    /** Grupo/subgrupo del que proviene una materia oficial (para re-sync). */
+    val sourceGroupId: Int? = null
 ) : Serializable

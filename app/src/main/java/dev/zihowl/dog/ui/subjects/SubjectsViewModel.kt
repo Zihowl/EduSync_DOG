@@ -94,6 +94,8 @@ class SubjectsViewModel(private val repository: DogRepository) : ViewModel() {
     }
 
     fun toggleSelection(subject: Subject) {
+        // Las materias oficiales son solo lectura: no entran en modo selección.
+        if (subject.isOfficial) return
         val current = _selectedSubjects.value?.toMutableSet() ?: mutableSetOf()
         if (current.contains(subject)) {
             current.remove(subject)

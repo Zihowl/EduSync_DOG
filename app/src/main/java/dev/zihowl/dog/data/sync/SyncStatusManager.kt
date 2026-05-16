@@ -14,6 +14,19 @@ class SyncStatusManager(context: Context) {
         const val STATUS_SYNCED = "Sincronizado"
         const val STATUS_OFFLINE = "Sin Conexión"
         const val STATUS_ERROR = "Error de Sincronización"
+
+        @Volatile
+        private var instance: SyncStatusManager? = null
+
+        /** Reporta que una operación real contactó al servidor con éxito. */
+        fun reportServerReachable() {
+            instance?.onServerReachable()
+        }
+
+        /** Reporta que una operación real no pudo contactar al servidor. */
+        fun reportServerUnreachable() {
+            instance?.onServerUnreachable()
+        }
     }
 
     private val _syncStatus = MutableLiveData(STATUS_OFFLINE)
@@ -23,7 +36,8 @@ class SyncStatusManager(context: Context) {
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            _syncStatus.postValue(STATUS_SYNCED)
+            // No se asume "Sincronizado": se espera a la primera señal real
+            // del servidor (petición GraphQL o WebSocket).
         }
 
         override fun onLost(network: Network) {
@@ -36,17 +50,13 @@ class SyncStatusManager(context: Context) {
     }
 
     init {
+        instance = this
         val networkRequest = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         connectivityManager.registerNetworkCallback(networkRequest, networkCallback)
-
-        val currentNetwork = connectivityManager.activeNetwork
-        val hasInternet = currentNetwork?.let {
-            val caps = connectivityManager.getNetworkCapabilities(it)
-            caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
-        } ?: false
-        _syncStatus.value = if (hasInternet) STATUS_SYNCED else STATUS_OFFLINE
+        // Estado conservador hasta recibir la primera señal real del servidor.
+        _syncStatus.value = STATUS_OFFLINE
     }
 
     fun unregister() {
@@ -54,6 +64,20 @@ class SyncStatusManager(context: Context) {
             connectivityManager.unregisterNetworkCallback(networkCallback)
         } catch (_: IllegalArgumentException) {
         }
+    }
+
+    private fun hasNetwork(): Boolean {
+        val network = connectivityManager.activeNetwork ?: return false
+        val caps = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    private fun onServerReachable() {
+        _syncStatus.postValue(STATUS_SYNCED)
+    }
+
+    private fun onServerUnreachable() {
+        _syncStatus.postValue(if (hasNetwork()) STATUS_ERROR else STATUS_OFFLINE)
     }
 
     fun setError() {

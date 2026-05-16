@@ -130,7 +130,7 @@ class AddNoteDialogFragment : DialogFragment() {
             if (it == "Ninguna") null else it
         }
         val sessionManager = SessionManager(requireContext())
-        val owner = sessionManager.username
+        val owner = sessionManager.currentOwner()
 
         if (isEditing && originalNote != null) {
             val updated = originalNote!!.copy(

@@ -4,6 +4,7 @@ import android.app.Application
 import dev.zihowl.dog.data.local.AppDatabase
 import dev.zihowl.dog.data.repository.DogRepository
 import dev.zihowl.dog.data.session.SessionManager
+import dev.zihowl.dog.data.sync.SyncStatusManager
 import dev.zihowl.dog.notifications.ClassNotificationScheduler
 import dev.zihowl.dog.notifications.NotificationHelper
 import kotlinx.coroutines.CompletableDeferred
@@ -18,6 +19,12 @@ class DogApplication : Application() {
     private val repositoryDeferred = CompletableDeferred<DogRepository>()
 
     suspend fun repository(): DogRepository = repositoryDeferred.await()
+
+    /**
+     * Singleton de proceso: su [SyncStatusManager.networkCallback] vive durante
+     * toda la vida del proceso y los reportes estáticos siempre tienen instancia.
+     */
+    val syncStatusManager: SyncStatusManager by lazy { SyncStatusManager(this) }
 
     override fun onCreate() {
         super.onCreate()
@@ -34,7 +41,8 @@ class DogApplication : Application() {
                 db.noteDao(),
                 db.manualEventDao(),
                 db.syncQueueDao(),
-                syncKeyProvider = { sessionManager.getSyncAesKey() }
+                syncKeyProvider = { sessionManager.getSyncAesKey() },
+                initialOwner = sessionManager.currentOwner()
             )
             repositoryDeferred.complete(repo)
 
