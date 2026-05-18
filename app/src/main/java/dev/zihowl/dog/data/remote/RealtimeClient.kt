@@ -58,6 +58,18 @@ class RealtimeClient(
         webSocket = client.newWebSocket(request, listener)
     }
 
+    /**
+     * Fuerza el restablecimiento inmediato del WebSocket, sin esperar el
+     * retardo de [RECONNECT_DELAY_MS]. Se invoca al recuperar la red para que
+     * las subscripciones se reactiven al instante.
+     */
+    fun reconnectNow() {
+        if (stopped) return
+        webSocket?.cancel()
+        webSocket = null
+        connect()
+    }
+
     private fun scheduleReconnect() {
         if (stopped) return
         scope.launch {

@@ -37,6 +37,9 @@ interface NotificationDao {
     @Query("DELETE FROM notifications WHERE owner = :owner")
     fun deleteByOwner(owner: String): Int
 
+    @Query("DELETE FROM notifications WHERE id = :id")
+    fun deleteById(id: Int): Int
+
     @Query("UPDATE notifications SET owner = :to WHERE owner = :from")
     fun reassignOwner(from: String, to: String): Int
 

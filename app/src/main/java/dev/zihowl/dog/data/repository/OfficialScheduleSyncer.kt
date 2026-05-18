@@ -107,7 +107,9 @@ class OfficialScheduleSyncer(
         }
 
         val combined = combineStudentSlots(slots, groupId, subgroupId, config)
-        applyAndNotify(combined, emptySet())
+        // Se pasan las materias descartadas para no notificar como "eliminada
+        // por el servidor" una materia que el propio alumno ocultó.
+        applyAndNotify(combined, config.discarded)
         return Result.Success
     }
 
@@ -139,20 +141,65 @@ class OfficialScheduleSyncer(
         val before = repository.getOfficialSubjects(owner).associateBy { it.name }
         repository.syncOfficialSubjects(slots, discardedNames, owner, weekDays)
         val after = repository.getOfficialSubjects(owner).associateBy { it.name }
-        detectChanges(before, after, owner)
+        detectChanges(before, after, owner, discardedNames)
     }
 
-    /** Compara materia por materia y persiste/emite las notificaciones. */
+    /**
+     * Compara el estado previo y el recién descargado para emitir
+     * notificaciones precisas: materias añadidas/eliminadas del horario
+     * publicado y cambios de salón, docente u horario.
+     */
     private suspend fun detectChanges(
         before: Map<String, Subject>,
         after: Map<String, Subject>,
-        owner: String
+        owner: String,
+        discardedNames: Set<String>
     ) {
+        // Primera materialización: no hay estado previo con qué comparar, así
+        // que la importación inicial no genera avisos.
+        if (before.isEmpty()) return
+
         for ((name, newSubject) in after) {
-            val oldSubject = before[name] ?: continue // materia nueva: no es "cambio"
+            val oldSubject = before[name]
+            if (oldSubject == null) {
+                buildPresence(owner, name, Notification.TYPE_ADDED)
+                continue
+            }
             buildChange(owner, name, Notification.TYPE_TEACHER, oldSubject.professorName, newSubject.professorName)
             buildChange(owner, name, Notification.TYPE_SCHEDULE, oldSubject.schedule, newSubject.schedule)
             buildChange(owner, name, Notification.TYPE_ROOM, oldSubject.classroom, newSubject.classroom)
+        }
+        for (name in before.keys) {
+            if (name in after) continue
+            // Excluye las materias que el propio alumno descartó: su
+            // desaparición no es un cambio del servidor.
+            if (name in discardedNames) continue
+            buildPresence(owner, name, Notification.TYPE_REMOVED)
+        }
+    }
+
+    /** Notificación de materia añadida o eliminada del horario publicado. */
+    private suspend fun buildPresence(owner: String, subjectName: String, type: String) {
+        val title: String
+        val body: String
+        if (type == Notification.TYPE_ADDED) {
+            title = "Materia añadida"
+            body = "Se añadió la materia \"$subjectName\" a tu horario."
+        } else {
+            title = "Materia eliminada"
+            body = "La materia \"$subjectName\" ya no aparece en tu horario."
+        }
+        val notification = Notification(
+            owner = owner,
+            title = title,
+            body = body,
+            type = type,
+            subjectName = subjectName,
+            newValue = subjectName
+        )
+        val inserted = repository.recordNotificationIfNew(notification)
+        if (inserted) {
+            appContext?.let { NotificationHelper.notifyScheduleChange(it, notification) }
         }
     }
 
@@ -164,22 +211,51 @@ class OfficialScheduleSyncer(
         newValue: String?
     ) {
         val current = newValue?.takeIf { it.isNotBlank() } ?: return
-        if (oldValue.orEmpty() == current) return
+        val previous = oldValue.orEmpty()
+        if (previous == current) return
 
         val title: String
         val body: String
         when (type) {
             Notification.TYPE_ROOM -> {
                 title = "Cambio de salón"
-                body = "$subjectName: nuevo salón → $current"
+                body = if (previous.isBlank()) {
+                    "$subjectName: nuevo salón → $current"
+                } else {
+                    "$subjectName: el salón cambió de $previous a $current"
+                }
             }
             Notification.TYPE_TEACHER -> {
                 title = "Cambio de docente"
-                body = "$subjectName: nuevo docente → $current"
+                body = if (previous.isBlank()) {
+                    "$subjectName: nuevo docente → $current"
+                } else {
+                    "$subjectName: el docente cambió de $previous a $current"
+                }
             }
             else -> {
                 title = "Cambio de horario"
-                body = "$subjectName: el horario fue actualizado"
+                body = if (previous.isBlank()) {
+                    "$subjectName: nuevo horario →\n$current"
+                } else {
+                    // Solo se reportan los bloques que realmente cambiaron, no
+                    // todo el horario de la materia.
+                    val oldBlocks = previous.split("\n").filter { it.isNotBlank() }
+                    val newBlocks = current.split("\n").filter { it.isNotBlank() }
+                    val removed = oldBlocks - newBlocks.toSet()
+                    val added = newBlocks - oldBlocks.toSet()
+                    buildString {
+                        append("$subjectName: el horario cambió.")
+                        if (removed.isNotEmpty()) {
+                            append("\nAntes: ")
+                            append(removed.joinToString(" · "))
+                        }
+                        if (added.isNotEmpty()) {
+                            append("\nAhora: ")
+                            append(added.joinToString(" · "))
+                        }
+                    }
+                }
             }
         }
 
@@ -189,7 +265,8 @@ class OfficialScheduleSyncer(
             body = body,
             type = type,
             subjectName = subjectName,
-            newValue = current
+            newValue = current,
+            oldValue = previous
         )
         // recordNotificationIfNew deduplica contra el último valor conocido:
         // reconexiones repetidas no repiten el aviso.

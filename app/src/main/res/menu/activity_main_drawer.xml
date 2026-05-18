@@ -14,7 +14,7 @@
             android:icon="@android:drawable/ic_menu_info_details" />
         <item
             android:id="@+id/nav_share_task"
-            android:title="Compartir tarea"
+            android:title="Tareas compartidas"
             android:icon="@android:drawable/ic_menu_share"
             android:visible="false" />
         <item

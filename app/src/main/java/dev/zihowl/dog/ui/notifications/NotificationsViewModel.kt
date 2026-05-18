@@ -32,4 +32,18 @@ class NotificationsViewModel(application: Application) : AndroidViewModel(applic
             repository.markNotificationsRead(session.currentOwner())
         }
     }
+
+    /** Descarta una notificación individual de la bandeja. */
+    fun dismiss(notification: Notification) {
+        viewModelScope.launch {
+            repository.deleteNotification(notification.id)
+        }
+    }
+
+    /** Borra todas las notificaciones del usuario activo. */
+    fun clearAll() {
+        viewModelScope.launch {
+            repository.deleteAllNotifications(session.currentOwner())
+        }
+    }
 }

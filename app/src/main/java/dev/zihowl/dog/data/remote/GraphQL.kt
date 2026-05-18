@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -66,12 +67,25 @@ internal object GraphQL {
             SyncStatusManager.reportServerUnreachable()
             throw e
         }
-        // El servidor respondió HTTP: es accesible (aunque la query falle).
-        SyncStatusManager.reportServerReachable()
         response.use { resp ->
             val raw = resp.body?.string().orEmpty()
-            if (raw.isBlank()) error("empty response (HTTP ${resp.code})")
-            val json = JSONObject(raw)
+            // Una respuesta HTTP no implica que el backend esté disponible: un
+            // proxy (p.ej. Cloudflare con el túnel caído → 1033) responde con
+            // una página de error HTML. Solo es "alcanzable" si el backend
+            // GraphQL devolvió un cuerpo JSON válido.
+            if (!resp.isSuccessful || raw.isBlank()) {
+                SyncStatusManager.reportServerUnreachable()
+                throw IOException("server unavailable (HTTP ${resp.code})")
+            }
+            val json = try {
+                JSONObject(raw)
+            } catch (e: JSONException) {
+                SyncStatusManager.reportServerUnreachable()
+                throw IOException("respuesta no-JSON del servidor (HTTP ${resp.code})", e)
+            }
+            // El backend GraphQL respondió con JSON: es accesible de verdad
+            // (aunque la query concreta traiga errores en el campo `errors`).
+            SyncStatusManager.reportServerReachable()
             val data = json.optJSONObject("data")
             val errors = json.optJSONArray("errors") ?: JSONArray()
             GraphQLResponse(data, errors)

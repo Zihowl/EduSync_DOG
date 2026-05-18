@@ -11,6 +11,7 @@ class SessionManager(context: Context) {
     companion object {
         private const val PREFS_NAME = "dog_prefs"
         private const val KEY_USERNAME = "username"
+        private const val KEY_ACCOUNT_USERNAME = "account_username"
         private const val KEY_ROLE = "role"
         private const val KEY_DB_PASSPHRASE = "db_passphrase"
         private const val KEY_SYNC_AES_KEY = "sync_aes_key"
@@ -57,6 +58,14 @@ class SessionManager(context: Context) {
     var username: String
         get() = prefs.getString(KEY_USERNAME, "Alumno") ?: "Alumno"
         set(value) = prefs.edit().putString(KEY_USERNAME, value).apply()
+
+    /**
+     * Nombre de usuario único de la cuenta (handle elegido en el registro).
+     * `null` en modo invitado o en sesiones previas a este campo.
+     */
+    var accountUsername: String?
+        get() = prefs.getString(KEY_ACCOUNT_USERNAME, null)
+        set(value) = prefs.edit().putString(KEY_ACCOUNT_USERNAME, value).apply()
 
     var role: String
         get() = prefs.getString(KEY_ROLE, DEFAULT_ROLE) ?: DEFAULT_ROLE

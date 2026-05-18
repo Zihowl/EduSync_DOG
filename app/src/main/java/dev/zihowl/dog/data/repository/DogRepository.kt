@@ -6,17 +6,21 @@ import androidx.lifecycle.switchMap
 import dev.zihowl.dog.data.local.ManualEventDao
 import dev.zihowl.dog.data.local.NoteDao
 import dev.zihowl.dog.data.local.NotificationDao
+import dev.zihowl.dog.data.local.SharedTaskDao
 import dev.zihowl.dog.data.local.SubjectDao
 import dev.zihowl.dog.data.local.SyncQueueDao
 import dev.zihowl.dog.data.local.TaskDao
 import dev.zihowl.dog.data.model.ManualEvent
 import dev.zihowl.dog.data.model.Note
 import dev.zihowl.dog.data.model.Notification
+import dev.zihowl.dog.data.model.SharedTaskInbox
 import dev.zihowl.dog.data.model.Subject
 import dev.zihowl.dog.data.model.SyncQueueItem
 import dev.zihowl.dog.data.model.Task
 import dev.zihowl.dog.utils.Aes256Crypto
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
@@ -27,6 +31,7 @@ class DogRepository(
     private val manualEventDao: ManualEventDao,
     private val syncQueueDao: SyncQueueDao,
     private val notificationDao: NotificationDao,
+    private val sharedTaskDao: SharedTaskDao,
     private val syncKeyProvider: (() -> ByteArray)? = null,
     initialOwner: String = ""
 ) {
@@ -35,6 +40,16 @@ class DogRepository(
      * recalculan automáticamente cuando cambia (cambio de cuenta / logout).
      */
     private val activeOwner = MutableLiveData(initialOwner)
+
+    /**
+     * Serializa las re-sincronizaciones del horario oficial. [syncOfficialSubjects]
+     * borra y reinserta las materias oficiales en pasos separados (no es una
+     * transacción atómica); si dos sincronizaciones se solapan —p. ej. el guardado
+     * de "Mi grupo y materias" y el re-sync que dispara MainActivity al pasar el
+     * estado a "Sincronizado"— sus borrados e inserciones se intercalan y las
+     * materias quedan duplicadas. Este mutex obliga a que se ejecuten una tras otra.
+     */
+    private val officialSyncMutex = Mutex()
 
     /** Fija qué cuenta ve la UI. Debe llamarse al iniciar sesión o en MainActivity. */
     fun setActiveOwner(owner: String) {
@@ -169,7 +184,8 @@ class DogRepository(
         owner: String,
         weekDays: List<String>
     ): List<String> {
-        return withContext(Dispatchers.IO) {
+        return officialSyncMutex.withLock {
+            withContext(Dispatchers.IO) {
             val collisions = mutableListOf<String>()
             subjectDao.deleteAllOfficialForOwner(owner)
 
@@ -209,6 +225,7 @@ class DogRepository(
                 )
             }
             collisions
+            }
         }
     }
 
@@ -425,6 +442,7 @@ class DogRepository(
             manualEventDao.reassignOwner(from, to)
             syncQueueDao.reassignOwner(from, to)
             notificationDao.reassignOwner(from, to)
+            sharedTaskDao.reassignOwner(from, to)
         }
     }
 
@@ -437,6 +455,7 @@ class DogRepository(
             manualEventDao.deleteByOwner(owner)
             syncQueueDao.clearForOwner(owner)
             notificationDao.deleteByOwner(owner)
+            sharedTaskDao.deleteByOwner(owner)
         }
     }
 
@@ -487,6 +506,40 @@ class DogRepository(
 
     suspend fun markNotificationsRead(owner: String) {
         withContext(Dispatchers.IO) { notificationDao.markAllReadForOwner(owner) }
+    }
+
+    /** Descarta una notificación individual de la bandeja in-app. */
+    suspend fun deleteNotification(id: Int) {
+        withContext(Dispatchers.IO) { notificationDao.deleteById(id) }
+    }
+
+    /** Borra todas las notificaciones de [owner]. */
+    suspend fun deleteAllNotifications(owner: String) {
+        withContext(Dispatchers.IO) { notificationDao.deleteByOwner(owner) }
+    }
+
+    /** Inserta una notificación in-app sin deduplicar (toques, tareas compartidas). */
+    suspend fun addNotification(notification: Notification) {
+        withContext(Dispatchers.IO) { notificationDao.insert(notification) }
+    }
+
+    // --- Colaboración de tareas (RQF-APP-45/46/47) ---
+
+    /** Bandeja local de tareas compartidas conmigo, reactiva por cuenta activa. */
+    val sharedTaskInbox: LiveData<List<SharedTaskInbox>> =
+        activeOwner.switchMap { sharedTaskDao.getInboxForOwnerLive(it) }
+
+    /** Ids de tareas compartidas ya conocidas localmente (para detectar nuevas). */
+    suspend fun knownSharedTaskIds(owner: String): Set<String> {
+        return withContext(Dispatchers.IO) { sharedTaskDao.getKnownIds(owner).toSet() }
+    }
+
+    suspend fun upsertSharedTask(item: SharedTaskInbox) {
+        withContext(Dispatchers.IO) { sharedTaskDao.upsert(item) }
+    }
+
+    suspend fun updateSharedTaskStatus(sharedTaskId: String, status: String) {
+        withContext(Dispatchers.IO) { sharedTaskDao.updateStatus(sharedTaskId, status) }
     }
 
     /** Inserta registros restaurados desde un respaldo, sin encolar sync. */

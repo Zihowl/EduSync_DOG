@@ -127,6 +127,7 @@ class LoginActivity : AppCompatActivity() {
                 session.tokenExpiresAt = System.currentTimeMillis() + result.expiresIn * 1000
                 session.role = mappedRole
                 session.username = result.fullName?.takeIf { it.isNotBlank() } ?: email
+                session.accountUsername = result.username?.takeIf { it.isNotBlank() }
                 session.accountKey = email.trim().lowercase()
                 session.isLoggedIn = true
                 session.isGuestMode = false

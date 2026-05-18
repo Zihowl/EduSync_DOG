@@ -89,7 +89,9 @@ class MainActivity : AppCompatActivity(),
         setupViewModels()
         setupToolbarAndDrawer()
         applyRoleVisibility()
+        publishAcademicProfile()
         setupSyncStatus()
+        setupNetworkReconnectSync()
         setupAuthButtons()
         setupViewPagerAndTabs(resolveLegacyTabIndex(initialTabRequest))
 
@@ -275,6 +277,22 @@ class MainActivity : AppCompatActivity(),
 
     /** Último estado de sincronización observado (para detectar reconexión). */
     private var lastSyncStatus: String? = null
+
+    /**
+     * Listener registrado en [SyncStatusManager]: en cuanto Android reporta una
+     * interfaz de red disponible se sincroniza el horario oficial de inmediato
+     * (la petición GraphQL refresca el estado a "Sincronizado" al tener éxito)
+     * y se fuerza la reconexión del WebSocket, sin esperar su ciclo de 5 s.
+     */
+    private val onNetworkAvailable: () -> Unit = {
+        syncOfficialSchedule()
+        realtimeClient?.reconnectNow()
+    }
+
+    private fun setupNetworkReconnectSync() {
+        if (sessionManager.isGuestMode) return
+        syncStatusManager.addOnNetworkAvailableListener(onNetworkAvailable)
+    }
 
     private fun setupViewModels() {
         val repo = kotlinx.coroutines.runBlocking {
@@ -493,8 +511,19 @@ class MainActivity : AppCompatActivity(),
                 showNotificationsFragment()
                 return true
             }
+            R.id.nav_share_task -> {
+                showSharedTasksFragment()
+                return true
+            }
         }
         return true
+    }
+
+    private fun showSharedTasksFragment() {
+        showContainerFragment(
+            "Tareas compartidas",
+            dev.zihowl.dog.ui.sharedtasks.SharedTasksFragment::class.java
+        )
     }
 
     private fun showTeacherSchedulesFragment() {
@@ -575,6 +604,25 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
+    /**
+     * Publica el grupo/subgrupo del alumno en el servidor para que la
+     * colaboración pueda derivar quiénes son sus compañeros (RQNF-APP-43).
+     */
+    private fun publishAcademicProfile() {
+        if (sessionManager.isGuestMode) return
+        val baseUrl = sessionManager.serverBaseUrl ?: return
+        val token = sessionManager.accessToken ?: return
+        if (token.isBlank()) return
+        lifecycleScope.launch {
+            dev.zihowl.dog.data.remote.CollaborationClient().setAcademicProfile(
+                baseUrl,
+                token,
+                sessionManager.selectedGroupId,
+                sessionManager.selectedSubgroupId
+            )
+        }
+    }
+
     private fun applyRoleVisibility() {
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
         val perf = navigationView.menu.findItem(R.id.nav_performance)
@@ -608,6 +656,11 @@ class MainActivity : AppCompatActivity(),
                 it.isVisible = true
                 it.isEnabled = true
             }
+            // Colaboración de tareas: alumnos y docentes con sesión (RQF-APP-45/46/47).
+            navigationView.menu.findItem(R.id.nav_share_task)?.let {
+                it.isVisible = true
+                it.isEnabled = true
+            }
         }
     }
 
@@ -615,9 +668,17 @@ class MainActivity : AppCompatActivity(),
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
         val headerView = navigationView.getHeaderView(0)
         val headerUser = headerView.findViewById<TextView>(R.id.header_user)
+        val headerUsername = headerView.findViewById<TextView>(R.id.header_username)
         val headerSyncStatus = headerView.findViewById<TextView>(R.id.header_sync_status)
         val headerServer = headerView.findViewById<TextView>(R.id.header_server)
         headerUser.text = sessionManager.username
+        val handle = sessionManager.accountUsername
+        if (!sessionManager.isGuestMode && !handle.isNullOrBlank()) {
+            headerUsername.text = "@$handle"
+            headerUsername.visibility = View.VISIBLE
+        } else {
+            headerUsername.visibility = View.GONE
+        }
 
         val host = dev.zihowl.dog.utils.ServerUrlFormatter.displayHost(sessionManager.serverBaseUrl)
         if (sessionManager.isGuestMode || host.isEmpty()) {
@@ -640,7 +701,10 @@ class MainActivity : AppCompatActivity(),
         }
 
         loginButton?.setOnClickListener {
-            navigateToServerConnection()
+            // En modo invitado la sesión "existente" haría que
+            // ServerConnectionActivity rebote de vuelta a MainActivity; se fuerza
+            // mostrar la pantalla de configuración/login.
+            navigateToServerConnection(forceConfig = true)
         }
 
         logoutButton?.setOnClickListener {
@@ -696,6 +760,7 @@ class MainActivity : AppCompatActivity(),
             sessionManager.accountKey = null
             sessionManager.backupKeyBase64 = null
             sessionManager.username = "Alumno"
+            sessionManager.accountUsername = null
             sessionManager.selectedGroupId = -1
             sessionManager.selectedSubgroupId = -1
             sessionManager.scheduleConfigJson = null
@@ -703,9 +768,15 @@ class MainActivity : AppCompatActivity(),
         }
     }
 
-    private fun navigateToServerConnection() {
+    private fun navigateToServerConnection(forceConfig: Boolean = false) {
         val intent = Intent(this, dev.zihowl.dog.ui.serverconnection.ServerConnectionActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        if (forceConfig) {
+            intent.putExtra(
+                dev.zihowl.dog.ui.serverconnection.ServerConnectionActivity.EXTRA_FORCE_CONFIG,
+                true
+            )
+        }
         startActivity(intent)
         finish()
     }
@@ -723,7 +794,11 @@ class MainActivity : AppCompatActivity(),
     override fun onDestroy() {
         super.onDestroy()
         // syncStatusManager es un singleton de proceso: su NetworkCallback no
-        // se desregistra aquí, vive mientras viva el proceso.
+        // se desregistra aquí, vive mientras viva el proceso. El listener de
+        // esta Activity sí se quita para no fugar la referencia.
+        if (::syncStatusManager.isInitialized) {
+            syncStatusManager.removeOnNetworkAvailableListener(onNetworkAvailable)
+        }
         realtimeClient?.stop()
         realtimeClient = null
     }

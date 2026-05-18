@@ -15,7 +15,8 @@ class AuthClient(
             val expiresIn: Long,
             val serverRole: String?,
             val email: String?,
-            val fullName: String?
+            val fullName: String?,
+            val username: String?
         ) : LoginResult()
         object InvalidCredentials : LoginResult()
         data class Locked(val unlockAtEpochMs: Long) : LoginResult()
@@ -30,7 +31,22 @@ class AuthClient(
         object WeakPassword : RegisterResult()
         object PasswordMismatch : RegisterResult()
         object EmailAlreadyExists : RegisterResult()
+        object UsernameTaken : RegisterResult()
+        object InvalidUsername : RegisterResult()
         data class Error(val cause: Throwable?) : RegisterResult()
+    }
+
+    /// Resultado de consultar la disponibilidad de un nombre de usuario.
+    /// `Unknown` distingue un fallo de red/servidor de una respuesta real:
+    /// nunca debe interpretarse como "el usuario ya está en uso".
+    enum class UsernameStatus { AVAILABLE, TAKEN, UNKNOWN }
+
+    /// Perfil de registro de un correo: indica si pertenece a un docente del
+    /// catálogo CAT y, de ser así, el nombre institucional a precargar.
+    sealed class RegistrationProfileResult {
+        data class Success(val isTeacher: Boolean, val suggestedFullName: String?) :
+            RegistrationProfileResult()
+        data class Error(val cause: Throwable?) : RegistrationProfileResult()
     }
 
     sealed class VerifyResult {
@@ -67,7 +83,7 @@ class AuthClient(
               Login(loginInput: ${'$'}i) {
                 accessToken
                 expiresIn
-                user { email fullName role }
+                user { email username fullName role }
               }
             }
         """.trimIndent()
@@ -92,7 +108,8 @@ class AuthClient(
                         expiresIn = login.optLong("expiresIn", 0L),
                         serverRole = user?.optStringOrNull("role"),
                         email = user?.optStringOrNull("email"),
-                        fullName = user?.optStringOrNull("fullName")
+                        fullName = user?.optStringOrNull("fullName"),
+                        username = user?.optStringOrNull("username")
                     )
                 }
             },
@@ -103,6 +120,8 @@ class AuthClient(
     suspend fun register(
         baseUrl: String,
         email: String,
+        fullName: String,
+        username: String,
         password: String,
         passwordConfirmation: String
     ): RegisterResult {
@@ -118,6 +137,8 @@ class AuthClient(
             "i",
             JSONObject()
                 .put("email", email)
+                .put("fullName", fullName)
+                .put("username", username)
                 .put("password", password)
                 .put("passwordConfirmation", passwordConfirmation)
         )
@@ -299,7 +320,7 @@ class AuthClient(
               RefreshSession {
                 accessToken
                 expiresIn
-                user { email fullName role }
+                user { email username fullName role }
               }
             }
         """.trimIndent()
@@ -319,7 +340,8 @@ class AuthClient(
                         expiresIn = refresh.optLong("expiresIn", 0L),
                         serverRole = user?.optStringOrNull("role"),
                         email = user?.optStringOrNull("email"),
-                        fullName = user?.optStringOrNull("fullName")
+                        fullName = user?.optStringOrNull("fullName"),
+                        username = user?.optStringOrNull("username")
                     )
                 }
             },
@@ -346,6 +368,9 @@ class AuthClient(
     private fun classifyRegisterError(message: String): RegisterResult {
         val lower = message.lowercase()
         return when {
+            lower.contains("nombre de usuario ya") || lower.contains("usuario ya está en uso") ->
+                RegisterResult.UsernameTaken
+            lower.contains("nombre de usuario debe") -> RegisterResult.InvalidUsername
             lower.contains("dominio") -> RegisterResult.DomainNotAllowed
             lower.contains("criterios") || lower.contains("contraseña") && lower.contains("débil") ->
                 RegisterResult.WeakPassword
@@ -354,6 +379,55 @@ class AuthClient(
                 RegisterResult.EmailAlreadyExists
             else -> RegisterResult.Error(IllegalStateException(message))
         }
+    }
+
+    /// Consulta si un nombre de usuario está disponible para registrarse.
+    /// Un fallo de red o de servidor devuelve `UNKNOWN`, nunca `TAKEN`: así
+    /// la UI no acusa de "usuario en uso" un nombre que en realidad está libre.
+    suspend fun usernameAvailable(baseUrl: String, username: String): UsernameStatus {
+        val query = """
+            query(${'$'}u: String!) { UsernameAvailable(username: ${'$'}u) }
+        """.trimIndent()
+        val variables = JSONObject().put("u", username)
+        return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
+            onSuccess = { resp ->
+                when {
+                    resp.firstErrorMessage() != null -> UsernameStatus.UNKNOWN
+                    resp.data?.has("UsernameAvailable") != true -> UsernameStatus.UNKNOWN
+                    resp.data.optBoolean("UsernameAvailable", false) -> UsernameStatus.AVAILABLE
+                    else -> UsernameStatus.TAKEN
+                }
+            },
+            onFailure = { UsernameStatus.UNKNOWN }
+        )
+    }
+
+    /// Detecta si el correo pertenece a un docente del catálogo CAT.
+    suspend fun registrationProfile(baseUrl: String, email: String): RegistrationProfileResult {
+        val query = """
+            query(${'$'}e: String!) {
+              RegistrationProfile(email: ${'$'}e) { isTeacher suggestedFullName }
+            }
+        """.trimIndent()
+        val variables = JSONObject().put("e", email)
+        return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
+            onSuccess = { resp ->
+                val msg = resp.firstErrorMessage()
+                if (msg != null) {
+                    RegistrationProfileResult.Error(IllegalStateException(msg))
+                } else {
+                    val p = resp.data?.optJSONObject("RegistrationProfile")
+                        ?: return RegistrationProfileResult.Error(
+                            IllegalStateException("missing data.RegistrationProfile")
+                        )
+                    RegistrationProfileResult.Success(
+                        isTeacher = p.optBoolean("isTeacher", false),
+                        suggestedFullName = p.optStringOrNull("suggestedFullName")
+                    )
+                }
+            },
+            onFailure = { RegistrationProfileResult.Error(it) }
+        )
     }
 
     private fun extractIsoTimestamp(text: String): String? {

@@ -5,8 +5,11 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import java.util.concurrent.CopyOnWriteArraySet
 
 class SyncStatusManager(context: Context) {
 
@@ -34,10 +37,30 @@ class SyncStatusManager(context: Context) {
 
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
+    /**
+     * Listeners notificados en cuanto Android reporta una interfaz de red con
+     * acceso a internet. Permite a la UI disparar una sincronización inmediata
+     * sin esperar el ciclo de reconexión del WebSocket.
+     */
+    private val availableListeners = CopyOnWriteArraySet<() -> Unit>()
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    fun addOnNetworkAvailableListener(listener: () -> Unit) {
+        availableListeners.add(listener)
+    }
+
+    fun removeOnNetworkAvailableListener(listener: () -> Unit) {
+        availableListeners.remove(listener)
+    }
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            // No se asume "Sincronizado": se espera a la primera señal real
-            // del servidor (petición GraphQL o WebSocket).
+            // No se asume "Sincronizado": la señal real sigue viniendo de la
+            // primera petición GraphQL exitosa. Aquí solo se avisa a la UI para
+            // que dispare la sincronización de inmediato.
+            mainHandler.post {
+                availableListeners.forEach { runCatching { it() } }
+            }
         }
 
         override fun onLost(network: Network) {

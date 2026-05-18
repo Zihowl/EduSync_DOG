@@ -8,6 +8,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -15,11 +16,16 @@ import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Task
+import dev.zihowl.dog.data.remote.CollaborationClient
+import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.ui.main.MainActivity
+import dev.zihowl.dog.ui.sharedtasks.SharedTaskCodec
+import kotlinx.coroutines.launch
 
 class TasksFragment : Fragment() {
 
@@ -155,6 +161,7 @@ class TasksFragment : Fragment() {
                 menu.findItem(R.id.action_delete)?.isVisible = isSelection
                 menu.findItem(R.id.action_edit)?.isVisible = isSelection && selectedCount == 1
                 menu.findItem(R.id.action_mark_not_completed)?.isVisible = isSelection
+                menu.findItem(R.id.action_share_task)?.isVisible = isSelection && selectedCount == 1
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
@@ -172,10 +179,109 @@ class TasksFragment : Fragment() {
                         viewModel.markSelectedAsNotCompleted(requireContext())
                         true
                     }
+                    R.id.action_share_task -> {
+                        shareSelectedTask()
+                        true
+                    }
                     else -> false
                 }
             }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    /**
+     * Comparte la tarea seleccionada con compañeros (RQF-APP-45): carga los
+     * candidatos del servidor, deja elegir destinatarios y envía la tarea
+     * cifrada. `Compartir con todo el grupo` se modela seleccionando a todos.
+     */
+    private fun shareSelectedTask() {
+        val task = viewModel.selectedTasks.value?.firstOrNull() ?: return
+        val session = SessionManager(requireContext())
+        if (session.isGuestMode || session.serverBaseUrl.isNullOrBlank() ||
+            session.accessToken.isNullOrBlank()
+        ) {
+            Toast.makeText(
+                requireContext(),
+                "Compartir tareas requiere conexión con el servidor",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        val baseUrl = session.serverBaseUrl!!
+        val token = session.accessToken!!
+        val client = CollaborationClient()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val candidates = client.shareCandidates(baseUrl, token, null)
+            if (candidates.isEmpty()) {
+                Toast.makeText(
+                    requireContext(),
+                    "No hay compañeros disponibles. Configura tu grupo en 'Mi grupo y materias'.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@launch
+            }
+            val labels = candidates
+                .map { "${it.fullName} (@${it.username})" }
+                .toTypedArray()
+            val checked = BooleanArray(candidates.size)
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Compartir \"${task.title}\"")
+                .setMultiChoiceItems(labels, checked) { _, which, isChecked ->
+                    checked[which] = isChecked
+                }
+                .setPositiveButton("Compartir") { _, _ ->
+                    val recipients = candidates.filterIndexed { i, _ -> checked[i] }
+                    if (recipients.isEmpty()) {
+                        Toast.makeText(
+                            requireContext(),
+                            "Selecciona al menos un compañero",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@setPositiveButton
+                    }
+                    val scope = if (recipients.size == candidates.size) "GROUP" else "SELECTED"
+                    sendSharedTask(client, baseUrl, token, task, recipients, scope)
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+    }
+
+    private fun sendSharedTask(
+        client: CollaborationClient,
+        baseUrl: String,
+        token: String,
+        task: Task,
+        recipients: List<CollaborationClient.ShareCandidate>,
+        scope: String
+    ) {
+        val encrypted = SharedTaskCodec.encrypt(task)
+        if (encrypted == null) {
+            Toast.makeText(
+                requireContext(),
+                "No se pudo cifrar la tarea para compartirla",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = client.shareTask(
+                baseUrl, token,
+                encrypted.ciphertext, encrypted.encKey, scope,
+                task.title, recipients.map { it.userId }
+            )
+            val text = when (result) {
+                is CollaborationClient.ShareResult.Success ->
+                    "Tarea compartida con ${result.recipientCount} compañero(s)"
+                is CollaborationClient.ShareResult.Error ->
+                    result.message ?: "No se pudo compartir la tarea"
+            }
+            Toast.makeText(requireContext(), text, Toast.LENGTH_LONG).show()
+            if (result is CollaborationClient.ShareResult.Success) {
+                viewModel.finishSelectionMode()
+            }
+        }
     }
 
     private fun showDeleteConfirmationDialog() {

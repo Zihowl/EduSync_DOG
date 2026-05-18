@@ -42,6 +42,7 @@ class DogApplication : Application() {
                 db.manualEventDao(),
                 db.syncQueueDao(),
                 db.notificationDao(),
+                db.sharedTaskDao(),
                 syncKeyProvider = { sessionManager.getSyncAesKey() },
                 initialOwner = sessionManager.currentOwner()
             )
