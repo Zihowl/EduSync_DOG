@@ -60,7 +60,7 @@
     <string name="login_subtitle">Inicia sesión en tu cuenta</string>
     <string name="hint_username">Usuario</string>
     <string name="hint_password">Contraseña</string>
-    <string name="error_username_empty">Ingresa tu usuario</string>
+    <string name="error_email_empty">Ingresa tu correo institucional</string>
     <string name="error_password_empty">Ingresa tu contraseña</string>
     <string name="error_email_invalid">Ingresa un correo institucional válido</string>
     <string name="error_invalid_credentials">Credenciales inválidas. Verifica e intenta de nuevo.</string>

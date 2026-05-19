@@ -38,7 +38,7 @@ class ForgotPasswordActivity : AppCompatActivity() {
         binding.emailInputLayout.error = null
 
         if (email.isEmpty()) {
-            binding.emailInputLayout.error = getString(R.string.error_username_empty)
+            binding.emailInputLayout.error = getString(R.string.error_email_empty)
             return
         }
         if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {

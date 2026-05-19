@@ -354,7 +354,11 @@ class AuthClient(
         val lower = message.lowercase()
         return when {
             lower.contains("bloqueada") -> {
-                val unlock = extractIsoTimestamp(message)?.let { parseEpochMs(it) }
+                // El servidor es la fuente autoritativa del tiempo de desbloqueo:
+                // comunica los segundos restantes en el propio mensaje de error.
+                val unlock = extractLockoutSeconds(message)
+                        ?.let { System.currentTimeMillis() + it * 1000L }
+                    ?: extractIsoTimestamp(message)?.let { parseEpochMs(it) }
                     ?: (System.currentTimeMillis() + 15_000L)
                 LoginResult.Locked(unlock)
             }
@@ -402,6 +406,11 @@ class AuthClient(
             onFailure = { UsernameStatus.UNKNOWN }
         )
     }
+
+    /// Extrae los segundos de bloqueo del mensaje del servidor
+    /// ("…Intenta de nuevo en {N} segundos"), fuente autoritativa del desbloqueo.
+    private fun extractLockoutSeconds(text: String): Long? =
+        Regex("""(\d+)\s*segundos""").find(text)?.groupValues?.get(1)?.toLongOrNull()
 
     private fun extractIsoTimestamp(text: String): String? {
         val regex = Regex("""\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?""")

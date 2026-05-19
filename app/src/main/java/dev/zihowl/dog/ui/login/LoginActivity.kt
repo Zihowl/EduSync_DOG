@@ -70,19 +70,19 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun attemptLogin() {
-        val email = binding.usernameInput.text.toString().trim()
+        val email = binding.emailInput.text.toString().trim()
         val password = binding.passwordInput.text.toString()
 
         binding.errorText.visibility = View.GONE
-        binding.usernameInputLayout.error = null
+        binding.emailInputLayout.error = null
         binding.passwordInputLayout.error = null
 
         var hasFieldError = false
         if (email.isEmpty()) {
-            binding.usernameInputLayout.error = getString(R.string.error_username_empty)
+            binding.emailInputLayout.error = getString(R.string.error_email_empty)
             hasFieldError = true
         } else if (!Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            binding.usernameInputLayout.error = getString(R.string.error_email_invalid)
+            binding.emailInputLayout.error = getString(R.string.error_email_invalid)
             hasFieldError = true
         }
         if (password.isEmpty()) {

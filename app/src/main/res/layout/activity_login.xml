@@ -75,10 +75,10 @@
         </LinearLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/username_input_layout"
+            android:id="@+id/email_input_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="@string/hint_username"
+            android:hint="@string/hint_email"
             app:boxBackgroundMode="outline"
             app:boxCornerRadiusTopStart="@dimen/card_corner_small"
             app:boxCornerRadiusTopEnd="@dimen/card_corner_small"
@@ -88,10 +88,10 @@
             android:layout_marginBottom="@dimen/space_md">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/username_input"
+                android:id="@+id/email_input"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text"
+                android:inputType="textEmailAddress"
                 android:maxLines="1" />
 
         </com.google.android.material.textfield.TextInputLayout>
