@@ -134,4 +134,18 @@
     <string name="widget_schedule_name">Horario DOG</string>
     <string name="widget_tasks_name">Tareas DOG</string>
     <string name="widget_notes_name">Notas DOG</string>
+
+    <!-- Pantalla Acerca de / créditos -->
+    <string name="about_app">Acerca de la app</string>
+    <string name="about_title">Acerca de DOG</string>
+    <string name="about_app_name">DOG · Daily Organization Gadget</string>
+    <string name="about_tagline">Tu organizador académico diario. 🐺</string>
+    <string name="about_credits_title">Créditos</string>
+    <string name="about_credits_body">Desarrollado por Fernando \"Zihowl\" Rodríguez.\nProyecto académico de Desarrollo de Software.</string>
+    <string name="about_license_title">Licencia</string>
+    <string name="about_license_body">DOG es software libre: puedes redistribuirlo y/o modificarlo bajo los términos de la Licencia Pública General Affero de GNU (AGPL), versión 3 o posterior, publicada por la Free Software Foundation.\n\nSe distribuye con la esperanza de que sea útil, pero SIN NINGUNA GARANTÍA. Consulta la GNU AGPLv3 para más detalles.</string>
+    <string name="about_license_link">Ver texto completo de la AGPLv3</string>
+    <string name="about_license_url">https://www.gnu.org/licenses/agpl-3.0.html</string>
+    <string name="about_github">Repositorio en GitHub</string>
+    <string name="about_github_url">https://github.com/Zihowl/EduSync_DOG</string>
 </resources>

@@ -671,6 +671,11 @@ class MainActivity : AppCompatActivity(),
         val headerUsername = headerView.findViewById<TextView>(R.id.header_username)
         val headerSyncStatus = headerView.findViewById<TextView>(R.id.header_sync_status)
         val headerServer = headerView.findViewById<TextView>(R.id.header_server)
+        val headerAppIcon = headerView.findViewById<View>(R.id.header_app_icon)
+        headerAppIcon.setOnClickListener {
+            startActivity(android.content.Intent(this, dev.zihowl.dog.ui.about.AboutActivity::class.java))
+        }
+
         headerUser.text = sessionManager.username
         val handle = sessionManager.accountUsername
         if (!sessionManager.isGuestMode && !handle.isNullOrBlank()) {
@@ -679,6 +684,12 @@ class MainActivity : AppCompatActivity(),
         } else {
             headerUsername.visibility = View.GONE
         }
+        // Los alumnos no tienen nombre: el username se duplicaría como "nombre".
+        // En ese caso ocultamos la línea de nombre y dejamos solo el @username.
+        headerUser.visibility = if (
+            !sessionManager.isGuestMode && !handle.isNullOrBlank() &&
+            sessionManager.username == handle
+        ) View.GONE else View.VISIBLE
 
         val host = dev.zihowl.dog.utils.ServerUrlFormatter.displayHost(sessionManager.serverBaseUrl)
         if (sessionManager.isGuestMode || host.isEmpty()) {
