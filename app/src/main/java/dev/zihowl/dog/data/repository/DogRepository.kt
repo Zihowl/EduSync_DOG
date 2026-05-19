@@ -168,6 +168,34 @@ class DogRepository(
         }
     }
 
+    suspend fun disassociateAndDeleteSubjects(subjectIds: List<Int>) {
+        withContext(Dispatchers.IO) {
+            subjectIds.forEach { subjectId ->
+                val subject = subjectDao.getById(subjectId) ?: return@forEach
+                taskDao.getBySubjectName(subject.name).forEach { task ->
+                    taskDao.update(task.copy(subjectName = null))
+                }
+                noteDao.getBySubjectName(subject.name).forEach { note ->
+                    noteDao.update(note.copy(subjectName = null))
+                }
+                subjectDao.delete(subject)
+            }
+        }
+    }
+
+    suspend fun deleteSubjectsWithContent(subjectIds: List<Int>) {
+        withContext(Dispatchers.IO) {
+            subjectIds.forEach { subjectId ->
+                val subject = subjectDao.getById(subjectId) ?: return@forEach
+                val tasks = taskDao.getBySubjectName(subject.name)
+                if (tasks.isNotEmpty()) taskDao.deleteAll(tasks)
+                val notes = noteDao.getBySubjectName(subject.name)
+                if (notes.isNotEmpty()) noteDao.deleteAll(notes)
+                subjectDao.delete(subject)
+            }
+        }
+    }
+
     /**
      * Reemplaza las materias oficiales locales con las derivadas de los
      * bloques de horario publicados [slots]. Las materias cuyo nombre esté en

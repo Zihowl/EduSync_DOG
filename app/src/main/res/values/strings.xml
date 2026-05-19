@@ -80,15 +80,12 @@
     <string name="error_password_weak">La contraseña debe tener mínimo 8 caracteres e incluir al menos 3 tipos: mayúsculas, minúsculas, números o símbolos</string>
     <string name="error_password_mismatch">Las contraseñas no coinciden</string>
     <string name="error_email_already_exists">Ya existe una cuenta con ese correo</string>
-    <string name="hint_full_name">Nombre completo</string>
     <string name="helper_username">3-30 caracteres: letras, números, punto y guion bajo</string>
-    <string name="error_full_name_empty">Ingresa tu nombre completo</string>
     <string name="error_username_invalid">El usuario debe tener 3-30 caracteres: letras, números, punto y guion bajo</string>
     <string name="error_username_taken">Ese nombre de usuario ya está en uso</string>
     <string name="username_available">Usuario disponible</string>
     <string name="username_checking">Comprobando disponibilidad…</string>
     <string name="username_check_unavailable">No se pudo comprobar la disponibilidad</string>
-    <string name="full_name_teacher_locked">Nombre definido por la institución</string>
 
     <string name="verify_email_title">Verifica tu correo</string>
     <string name="verify_email_subtitle">Te enviamos un código de 6 dígitos a %1$s</string>

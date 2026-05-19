@@ -150,39 +150,48 @@ class SubjectsFragment : Fragment() {
 
     private fun showDeleteConfirmationDialog() {
         val selectedSubjects = viewModel.selectedSubjects.value ?: return
+        if (selectedSubjects.isEmpty()) return
 
-        if (selectedSubjects.size == 1) {
-            val subject = selectedSubjects.first()
-            if (viewModel.subjectHasContent(subject)) {
-                CoroutineScope(Dispatchers.Main).launch {
-                    val counts = viewModel.getSubjectContentCount(subject)
-                    val message = String.format(
+        CoroutineScope(Dispatchers.Main).launch {
+            val count = selectedSubjects.size
+            if (viewModel.selectionHasContent()) {
+                val counts = viewModel.getSelectionContentCount()
+                val message = if (count == 1) {
+                    String.format(
                         "Esta materia tiene %d tareas y %d notas asociadas.\n\n¿Qué deseas hacer?",
                         counts[0], counts[1]
                     )
-                    MaterialAlertDialogBuilder(requireContext())
-                        .setTitle("Materia con Contenido")
-                        .setMessage(message)
-                        .setNeutralButton("Cancelar", null)
-                        .setNegativeButton("Desvincular y Eliminar") { _, _ ->
-                            viewModel.disassociateAndDelete(subject, requireContext())
-                        }
-                        .setPositiveButton("Eliminar Todo") { _, _ ->
-                            viewModel.deleteSubjectAndContent(subject, requireContext())
-                        }
-                        .show()
+                } else {
+                    String.format(
+                        "Las materias seleccionadas tienen %d tareas y %d notas asociadas.\n\n¿Qué deseas hacer?",
+                        counts[0], counts[1]
+                    )
                 }
-                return
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(if (count == 1) "Materia con Contenido" else "Materias con Contenido")
+                    .setMessage(message)
+                    .setNeutralButton("Cancelar", null)
+                    .setNegativeButton("Desvincular y Eliminar") { _, _ ->
+                        viewModel.disassociateAndDeleteSelected(requireContext())
+                    }
+                    .setPositiveButton("Eliminar Todo") { _, _ ->
+                        viewModel.deleteSelectedSubjectsAndContent(requireContext())
+                    }
+                    .show()
+            } else {
+                val message = if (count == 1) {
+                    "¿Eliminar la materia \"${selectedSubjects.first().name}\"?"
+                } else {
+                    "¿Eliminar las $count materias seleccionadas?"
+                }
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle("Confirmar Eliminación")
+                    .setMessage(message)
+                    .setPositiveButton("Eliminar") { _, _ -> viewModel.deleteSelectedSubjects(requireContext()) }
+                    .setNegativeButton("Cancelar", null)
+                    .show()
             }
         }
-
-        val message = "¿Estás seguro de que quieres eliminar las ${selectedSubjects.size} materias seleccionadas y todo su contenido asociado?"
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Confirmar Eliminación")
-            .setMessage(message)
-            .setPositiveButton("Eliminar") { _, _ -> viewModel.deleteSelectedSubjects(requireContext()) }
-            .setNegativeButton("Cancelar", null)
-            .show()
     }
 
     private fun updateActionBarTitle(title: String) {

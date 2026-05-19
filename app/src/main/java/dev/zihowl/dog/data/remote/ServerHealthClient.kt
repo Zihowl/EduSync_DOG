@@ -28,16 +28,9 @@ class ServerHealthClient(
         }
     }
 
-    private fun normalize(raw: String): String? {
-        val trimmed = raw.trim().trimEnd('/')
-        if (trimmed.isEmpty()) return null
-        val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-            trimmed
-        } else {
-            "http://$trimmed"
-        }
-        return runCatching { java.net.URL(withScheme); withScheme }.getOrNull()
-    }
+    // Reusa la normalización de GraphQL: un host público se fuerza a https
+    // para no caer en el redirect 301 del túnel Cloudflare.
+    private fun normalize(raw: String): String? = GraphQL.normalize(raw)
 
     companion object {
         private val defaultClient: OkHttpClient by lazy {

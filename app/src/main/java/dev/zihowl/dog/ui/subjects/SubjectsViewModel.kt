@@ -83,6 +83,36 @@ class SubjectsViewModel(private val repository: DogRepository) : ViewModel() {
         }
     }
 
+    fun disassociateAndDeleteSelected(context: Context) {
+        val selected = _selectedSubjects.value ?: return
+        if (selected.isEmpty()) return
+        viewModelScope.launch {
+            repository.disassociateAndDeleteSubjects(selected.map { it.id })
+            finishSelectionMode()
+            val count = selected.size
+            Toast.makeText(
+                context,
+                "$count ${if (count > 1) "materias eliminadas" else "materia eliminada"}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    fun deleteSelectedSubjectsAndContent(context: Context) {
+        val selected = _selectedSubjects.value ?: return
+        if (selected.isEmpty()) return
+        viewModelScope.launch {
+            repository.deleteSubjectsWithContent(selected.map { it.id })
+            finishSelectionMode()
+            val count = selected.size
+            Toast.makeText(
+                context,
+                "$count ${if (count > 1) "materias" else "materia"} y su contenido eliminados",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     fun subjectHasContent(subject: Subject): Boolean {
         return (subject.tasksPending > 0) || (subject.notesCount > 0)
     }
@@ -91,6 +121,22 @@ class SubjectsViewModel(private val repository: DogRepository) : ViewModel() {
         val tasks = repository.getTasksForSubject(subject.name)
         val notes = repository.getNotesForSubject(subject.name)
         return intArrayOf(tasks.size, notes.size)
+    }
+
+    suspend fun getSelectionContentCount(): IntArray {
+        val selected = _selectedSubjects.value ?: return intArrayOf(0, 0)
+        var tasks = 0
+        var notes = 0
+        selected.forEach { subject ->
+            tasks += repository.getTasksForSubject(subject.name).size
+            notes += repository.getNotesForSubject(subject.name).size
+        }
+        return intArrayOf(tasks, notes)
+    }
+
+    suspend fun selectionHasContent(): Boolean {
+        val counts = getSelectionContentCount()
+        return counts[0] > 0 || counts[1] > 0
     }
 
     fun toggleSelection(subject: Subject) {

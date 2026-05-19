@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView
 import dev.zihowl.dog.R
 import dev.zihowl.dog.data.model.Task
 import dev.zihowl.dog.data.remote.CollaborationClient
+import dev.zihowl.dog.data.remote.displayIdentity
 import dev.zihowl.dog.data.session.SessionManager
 import dev.zihowl.dog.ui.main.MainActivity
 import dev.zihowl.dog.ui.sharedtasks.SharedTaskCodec
@@ -222,7 +223,7 @@ class TasksFragment : Fragment() {
                 return@launch
             }
             val labels = candidates
-                .map { "${it.fullName} (@${it.username})" }
+                .map { displayIdentity(it.fullName, it.username) }
                 .toTypedArray()
             val checked = BooleanArray(candidates.size)
             MaterialAlertDialogBuilder(requireContext())

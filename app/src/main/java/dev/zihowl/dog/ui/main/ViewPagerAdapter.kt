@@ -16,20 +16,14 @@ class ViewPagerAdapter(
 
     data class TabSpec(val title: String, val factory: () -> Fragment)
 
-    val tabs: List<TabSpec> = if (role == SessionManager.ROLE_DOCENTE) {
-        listOf(
-            TabSpec("Materias") { SubjectsFragment() },
-            TabSpec("Notas") { NotesFragment() },
-            TabSpec("Horario") { ScheduleFragment() }
-        )
-    } else {
-        listOf(
-            TabSpec("Materias") { SubjectsFragment() },
-            TabSpec("Tareas") { TasksFragment() },
-            TabSpec("Notas") { NotesFragment() },
-            TabSpec("Horario") { ScheduleFragment() }
-        )
-    }
+    // Todos los roles (alumno y docente) comparten las mismas pestañas:
+    // Materias, Tareas, Notas y Horario.
+    val tabs: List<TabSpec> = listOf(
+        TabSpec("Materias") { SubjectsFragment() },
+        TabSpec("Tareas") { TasksFragment() },
+        TabSpec("Notas") { NotesFragment() },
+        TabSpec("Horario") { ScheduleFragment() }
+    )
 
     override fun getItemCount(): Int = tabs.size
 

@@ -5,6 +5,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
+ * Identidad mostrable de un usuario: su nombre si lo tiene (docentes) o su
+ * `@usuario` si no (alumnos, que ya no registran nombre).
+ */
+fun displayIdentity(fullName: String, username: String): String =
+    fullName.takeIf { it.isNotBlank() } ?: "@$username"
+
+/**
  * Cliente GraphQL de la colaboración de tareas (RQF-APP-45/46/47): publica el
  * perfil académico, lista compañeros candidatos, comparte tareas, responde y
  * envía recordatorios.

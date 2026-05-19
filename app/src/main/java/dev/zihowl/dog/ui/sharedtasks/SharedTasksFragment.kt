@@ -39,6 +39,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import dev.zihowl.dog.data.model.SharedTaskInbox
 import dev.zihowl.dog.data.remote.CollaborationClient
+import dev.zihowl.dog.data.remote.displayIdentity
 
 /**
  * Pantalla de colaboración de tareas (RQF-APP-45/46/47). Muestra las tareas
@@ -182,7 +183,7 @@ private fun InboxCard(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "De ${item.ownerFullName} (@${item.ownerUsername})",
+                text = "De ${displayIdentity(item.ownerFullName, item.ownerUsername)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -234,7 +235,7 @@ private fun OutboxCard(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "${recipient.fullName} (@${recipient.username})",
+                            text = displayIdentity(recipient.fullName, recipient.username),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Text(

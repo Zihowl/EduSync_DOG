@@ -41,16 +41,13 @@ class AuthClient(
     /// nunca debe interpretarse como "el usuario ya está en uso".
     enum class UsernameStatus { AVAILABLE, TAKEN, UNKNOWN }
 
-    /// Perfil de registro de un correo: indica si pertenece a un docente del
-    /// catálogo CAT y, de ser así, el nombre institucional a precargar.
-    sealed class RegistrationProfileResult {
-        data class Success(val isTeacher: Boolean, val suggestedFullName: String?) :
-            RegistrationProfileResult()
-        data class Error(val cause: Throwable?) : RegistrationProfileResult()
-    }
-
     sealed class VerifyResult {
-        data class Success(val accessToken: String?, val serverRole: String?) : VerifyResult()
+        data class Success(
+            val accessToken: String?,
+            val serverRole: String?,
+            val fullName: String?,
+            val username: String?
+        ) : VerifyResult()
         object InvalidOrExpired : VerifyResult()
         data class Error(val cause: Throwable?) : VerifyResult()
     }
@@ -120,7 +117,6 @@ class AuthClient(
     suspend fun register(
         baseUrl: String,
         email: String,
-        fullName: String,
         username: String,
         password: String,
         passwordConfirmation: String
@@ -137,7 +133,9 @@ class AuthClient(
             "i",
             JSONObject()
                 .put("email", email)
-                .put("fullName", fullName)
+                // El alumno no registra nombre y el del docente lo define el
+                // catálogo CAT: el servidor ignora este campo.
+                .put("fullName", "")
                 .put("username", username)
                 .put("password", password)
                 .put("passwordConfirmation", passwordConfirmation)
@@ -170,7 +168,7 @@ class AuthClient(
             mutation(${'$'}i: VerifyEmailInput!) {
               VerifyEmail(verifyInput: ${'$'}i) {
                 accessToken
-                user { role }
+                user { role username fullName }
               }
             }
         """.trimIndent()
@@ -193,9 +191,12 @@ class AuthClient(
                 } else {
                     val v = resp.data?.optJSONObject("VerifyEmail")
                         ?: return VerifyResult.Error(IllegalStateException("missing data.VerifyEmail"))
+                    val user = v.optJSONObject("user")
                     VerifyResult.Success(
                         accessToken = v.optString("accessToken").takeIf { it.isNotBlank() },
-                        serverRole = v.optJSONObject("user")?.optString("role")
+                        serverRole = user?.optStringOrNull("role"),
+                        fullName = user?.optStringOrNull("fullName"),
+                        username = user?.optStringOrNull("username")
                     )
                 }
             },
@@ -399,34 +400,6 @@ class AuthClient(
                 }
             },
             onFailure = { UsernameStatus.UNKNOWN }
-        )
-    }
-
-    /// Detecta si el correo pertenece a un docente del catálogo CAT.
-    suspend fun registrationProfile(baseUrl: String, email: String): RegistrationProfileResult {
-        val query = """
-            query(${'$'}e: String!) {
-              RegistrationProfile(email: ${'$'}e) { isTeacher suggestedFullName }
-            }
-        """.trimIndent()
-        val variables = JSONObject().put("e", email)
-        return runCatching { GraphQL.post(client, baseUrl, query, variables) }.fold(
-            onSuccess = { resp ->
-                val msg = resp.firstErrorMessage()
-                if (msg != null) {
-                    RegistrationProfileResult.Error(IllegalStateException(msg))
-                } else {
-                    val p = resp.data?.optJSONObject("RegistrationProfile")
-                        ?: return RegistrationProfileResult.Error(
-                            IllegalStateException("missing data.RegistrationProfile")
-                        )
-                    RegistrationProfileResult.Success(
-                        isTeacher = p.optBoolean("isTeacher", false),
-                        suggestedFullName = p.optStringOrNull("suggestedFullName")
-                    )
-                }
-            },
-            onFailure = { RegistrationProfileResult.Error(it) }
         )
     }
 

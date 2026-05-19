@@ -86,7 +86,12 @@ class VerifyEmailActivity : AppCompatActivity() {
                 if (!token.isNullOrBlank() && role != SessionManager.ROLE_UNSUPPORTED) {
                     session.accessToken = token
                     session.role = role
-                    session.username = email.orEmpty()
+                    // El alumno no tiene nombre: se identifica con su @username.
+                    session.username = result.fullName?.takeIf { it.isNotBlank() }
+                        ?: result.username?.takeIf { it.isNotBlank() }
+                        ?: email.orEmpty()
+                    session.accountUsername = result.username?.takeIf { it.isNotBlank() }
+                    session.accountKey = email.orEmpty().trim().lowercase()
                     session.isLoggedIn = true
                     session.isGuestMode = false
                     startActivity(Intent(this, MainActivity::class.java))

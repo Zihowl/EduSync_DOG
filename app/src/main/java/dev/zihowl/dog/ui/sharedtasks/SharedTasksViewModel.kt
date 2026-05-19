@@ -9,6 +9,7 @@ import dev.zihowl.dog.DogApplication
 import dev.zihowl.dog.data.model.Notification
 import dev.zihowl.dog.data.model.SharedTaskInbox
 import dev.zihowl.dog.data.remote.CollaborationClient
+import dev.zihowl.dog.data.remote.displayIdentity
 import dev.zihowl.dog.data.repository.DogRepository
 import dev.zihowl.dog.data.session.SessionManager
 import kotlinx.coroutines.launch
@@ -78,7 +79,7 @@ class SharedTasksViewModel(application: Application) : AndroidViewModel(applicat
                         Notification(
                             owner = owner,
                             title = "Nueva tarea compartida",
-                            body = "${item.ownerFullName} (@${item.ownerUsername}) " +
+                            body = "${displayIdentity(item.ownerFullName, item.ownerUsername)} " +
                                 "te compartió: ${item.titlePreview}",
                             type = Notification.TYPE_TASK_SHARED,
                             subjectName = item.titlePreview,
@@ -143,7 +144,8 @@ class SharedTasksViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             when (val result = client.sendTaskReminder(baseUrl, token, sharedTaskId, recipient.userId)) {
                 is CollaborationClient.ReminderResult.Success ->
-                    _message.value = "Recordatorio enviado a ${recipient.fullName}. " +
+                    _message.value = "Recordatorio enviado a " +
+                        "${displayIdentity(recipient.fullName, recipient.username)}. " +
                         "Te quedan ${result.remaining} hoy."
                 is CollaborationClient.ReminderResult.LimitReached ->
                     _message.value = "Límite alcanzado: máximo 3 recordatorios por compañero en 24 h"

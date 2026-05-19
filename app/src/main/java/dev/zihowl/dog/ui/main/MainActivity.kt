@@ -387,8 +387,7 @@ class MainActivity : AppCompatActivity(),
             else -> return if (::pagerAdapter.isInitialized) 0 else 0
         }
         if (!::pagerAdapter.isInitialized) {
-            return if (sessionManager.role == SessionManager.ROLE_DOCENTE && targetTitle == "Tareas") 0
-            else legacy.coerceAtLeast(0)
+            return legacy.coerceAtLeast(0)
         }
         val idx = pagerAdapter.tabs.indexOfFirst { it.title == targetTitle }
         return if (idx >= 0) idx else 0
@@ -625,8 +624,9 @@ class MainActivity : AppCompatActivity(),
 
     private fun applyRoleVisibility() {
         val navigationView = findViewById<NavigationView>(R.id.nav_view)
+        // Rendimiento Académico visible para todos los roles (RQNF-APP-58).
         val perf = navigationView.menu.findItem(R.id.nav_performance)
-        perf?.isVisible = sessionManager.role != SessionManager.ROLE_DOCENTE
+        perf?.isVisible = true
 
         // El docente no elige grupo: la app le importa su horario automáticamente.
         navigationView.menu.findItem(R.id.nav_my_group)?.let {

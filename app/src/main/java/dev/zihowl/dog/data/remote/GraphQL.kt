@@ -29,12 +29,29 @@ internal object GraphQL {
         if (raw == null) return null
         val trimmed = raw.trim().trimEnd('/')
         if (trimmed.isEmpty()) return null
-        val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-            trimmed
-        } else {
-            "http://$trimmed"
-        }
+        val withScheme = applyScheme(trimmed)
         return runCatching { java.net.URL(withScheme); withScheme }.getOrNull()
+    }
+
+    /**
+     * Garantiza el esquema correcto. Un host público (un dominio como
+     * `dog.zihowl.dev`) debe ir por `https://`: un proxy como Cloudflare
+     * responde 301 a HTTP, y al seguir ese redirect OkHttp degrada el POST a
+     * GET y descarta el cuerpo → el backend recibe una petición vacía. Por eso
+     * incluso un `http://` explícito sobre un host público se eleva a `https`.
+     * Los hosts locales (localhost / IP privada) se quedan en `http`.
+     */
+    private fun applyScheme(input: String): String {
+        val schemeless = input
+            .removePrefix("https://")
+            .removePrefix("http://")
+        val host = schemeless.substringBefore('/').substringBefore(':')
+        val isLocal = host == "localhost" ||
+            host == "127.0.0.1" ||
+            host.startsWith("10.") ||
+            host.startsWith("192.168.") ||
+            host.matches(Regex("""172\.(1[6-9]|2\d|3[01])\..*"""))
+        return if (isLocal) "http://$schemeless" else "https://$schemeless"
     }
 
     suspend fun post(
